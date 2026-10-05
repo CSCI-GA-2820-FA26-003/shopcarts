@@ -73,8 +73,8 @@ class TestItem(TestCase):
         self.assertEqual(stored.quantity, item.quantity)
 
         # A shopcart can contain multiple products
-        # passing shopcart= to the factory already appends item2 to shopcart.items
         item2 = ItemFactory(shopcart=shopcart)
+        shopcart.items.append(item2)
         shopcart.update()
 
         new_shopcart = Shopcart.find(shopcart.id)
