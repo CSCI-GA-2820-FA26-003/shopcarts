@@ -70,9 +70,12 @@ class Item(db.Model, PersistentBase):
             data (dict): A dictionary containing the resource data
         """
         try:
-            # shopcart_id is optional here: when an item is created inside a
-            # shopcart, SQLAlchemy fills it in through the relationship
-            self.shopcart_id = data.get("shopcart_id")
+            # shopcart_id is optional: when an item is appended to a shopcart,
+            # SQLAlchemy fills it in through the relationship. Only overwrite
+            # it when the request explicitly sends one, so a PUT without
+            # shopcart_id does not wipe out the existing value.
+            if "shopcart_id" in data:
+                self.shopcart_id = data["shopcart_id"]
             self.product_id = data["product_id"]
             self.name = data["name"]
             self.description = data.get("description")
