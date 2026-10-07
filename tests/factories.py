@@ -4,6 +4,7 @@
 """
 Test Factory to make fake Shopcart and Item objects for testing
 """
+
 from factory import Factory, SubFactory, Sequence, Faker, post_generation
 from factory.fuzzy import FuzzyDecimal, FuzzyInteger
 from service.models import Shopcart, Item
@@ -18,12 +19,13 @@ class ShopcartFactory(Factory):
 
         model = Shopcart
 
-    id = Sequence(lambda n: n)
     # customer_id must be unique, so use a Sequence instead of a random number
     customer_id = Sequence(lambda n: n + 1)
 
     @post_generation
-    def items(self, create, extracted, **kwargs):  # pylint: disable=method-hidden, unused-argument
+    def items(
+        self, create, extracted, **kwargs
+    ):  # pylint: disable=method-hidden, unused-argument
         """Creates the items list"""
         if not create:
             return

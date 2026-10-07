@@ -26,10 +26,12 @@ from wsgi import app
 from service.common import status
 from service.models import db, Shopcart, Item, DataValidationError
 from service.common import error_handlers
+from .factories import ShopcartFactory
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"
 )
+BASE_URL = "/shopcarts"
 
 
 ######################################################################
@@ -74,6 +76,34 @@ class TestShopcartService(TestCase):
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
+    # ----------------------------------------------------------
+    # TEST CREATE
+    # ----------------------------------------------------------
+    def test_create_shopcart(self):
+        """It should Create a new Shopcart"""
+        test_shopcart = ShopcartFactory()
+        logging.debug("Test Shopcart: %s", test_shopcart.serialize())
+        response = self.client.post(BASE_URL, json=test_shopcart.serialize())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Make sure location header is set
+        location = response.headers.get("Location", None)
+        self.assertIsNotNone(location)
+
+        # Check the data is correct
+        new_shopcart = response.get_json()
+        self.assertIsNotNone(new_shopcart["id"])
+        self.assertEqual(new_shopcart["customer_id"], test_shopcart.customer_id)
+        self.assertEqual(new_shopcart["items"], [])
+
+        # Check that the location header was correct
+        response = self.client.get(location)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        new_shopcart = response.get_json()
+        self.assertIsNotNone(new_shopcart["id"])
+        self.assertEqual(new_shopcart["customer_id"], test_shopcart.customer_id)
+        self.assertEqual(new_shopcart["items"], [])
+
     ######################################################################
     #  E R R O R   H A N D L E R   T E S T S
     ######################################################################
@@ -91,7 +121,9 @@ class TestShopcartService(TestCase):
 
     def test_bad_request_handler(self):
         """It should return 400 for a DataValidationError"""
-        _, code = error_handlers.request_validation_error(DataValidationError("bad data"))
+        _, code = error_handlers.request_validation_error(
+            DataValidationError("bad data")
+        )
         self.assertEqual(code, status.HTTP_400_BAD_REQUEST)
 
     def test_unsupported_media_type_handler(self):
