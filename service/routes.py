@@ -43,4 +43,78 @@ def index():
 #  R E S T   A P I   E N D P O I N T S
 ######################################################################
 
-# Todo: Place your REST API code here ...
+
+######################################################################
+# CREATE A NEW SHOPCART
+######################################################################
+@app.route("/shopcarts", methods=["POST"])
+def create_shopcarts():
+    """
+    Create a Shopcart
+    This endpoint will create a Shopcart based the data in the body that is posted
+    """
+    app.logger.info("Request to Create a shopcart...")
+    check_content_type("application/json")
+
+    shopcart = Shopcart()
+    # Get the data from the request and deserialize it
+    data = request.get_json()
+    app.logger.info("Processing: %s", data)
+    shopcart.deserialize(data)
+
+    # Save the new shopcart to the database
+    shopcart.create()
+    app.logger.info("shopcart with new id [%s] saved!", shopcart.id)
+
+    # Return the location of the new shopcart
+    location_url = url_for("get_shopcarts", shopcart_id=shopcart.id, _external=True)
+    return shopcart.serialize(), status.HTTP_201_CREATED, {"Location": location_url}
+
+
+######################################################################
+# GET A NEW SHOPCART
+######################################################################
+@app.route("/shopcarts/<int:shopcart_id>", methods=["GET"])
+def get_shopcarts(shopcart_id):
+    """
+    Get a single Shopcart
+    This endpoint will return a Shopcart based on its id
+    """
+    app.logger.info("Request to Read a shopcart with id [%s]", shopcart_id)
+    shopcart = Shopcart.find(shopcart_id)
+    if not shopcart:
+        abort(
+            status.HTTP_404_NOT_FOUND, f"Shopcart with id '{shopcart_id}' was not found"
+        )
+    return shopcart.serialize(), status.HTTP_200_OK
+
+
+######################################################################
+# Checks the ContentType of a request
+######################################################################
+def check_content_type(content_type) -> None:
+    """Checks that the media type is correct"""
+    if "Content-Type" not in request.headers:
+        app.logger.error("No Content-Type specified.")
+        abort(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            f"Content-Type must be {content_type}",
+        )
+
+    if request.headers["Content-Type"] == content_type:
+        return
+
+    app.logger.error("Invalid Content-Type: %s", request.headers["Content-Type"])
+    abort(
+        status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+        f"Content-Type must be {content_type}",
+    )
+
+
+########################################################################
+# Logs error messages before aborting
+########################################################################
+def error(status_code, reason):
+    """Logs the error and then aborts"""
+    app.logger.error(reason)
+    abort(status_code, reason)
