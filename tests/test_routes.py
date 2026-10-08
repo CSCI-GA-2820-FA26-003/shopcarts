@@ -177,5 +177,3 @@ class TestShopcartService(TestCase):
         """It should return 500 for an internal error"""
         _, code = error_handlers.internal_server_error("boom")
         self.assertEqual(code, status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    # Todo: Add your test cases here...
