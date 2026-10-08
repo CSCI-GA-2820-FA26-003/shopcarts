@@ -104,6 +104,48 @@ class TestShopcartService(TestCase):
         self.assertEqual(new_shopcart["customer_id"], test_shopcart.customer_id)
         self.assertEqual(new_shopcart["items"], [])
 
+    # ----------------------------------------------------------
+    # TEST READ
+    # ----------------------------------------------------------
+    def test_read_shopcart(self):
+        """It should Read the requested Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        other_shopcart = ShopcartFactory()
+        other_shopcart.create()
+
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.get_json()
+        self.assertEqual(data["id"], shopcart.id)
+        self.assertEqual(data["customer_id"], shopcart.customer_id)
+
+    def test_read_empty_shopcart(self):
+        """It should Read an empty Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.get_json()
+        self.assertEqual(data["id"], shopcart.id)
+        self.assertEqual(data["customer_id"], shopcart.customer_id)
+        self.assertEqual(data["items"], [])
+
+    def test_read_shopcart_not_found(self):
+        """It should return 404 when the Shopcart does not exist"""
+        response = self.client.get(f"{BASE_URL}/0")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        data = response.get_json()
+        self.assertEqual(data["error"], "Not Found")
+        self.assertIn(
+            "Shopcart with id '0' was not found",
+            data["message"],
+        )
+
     ######################################################################
     #  E R R O R   H A N D L E R   T E S T S
     ######################################################################
@@ -135,5 +177,3 @@ class TestShopcartService(TestCase):
         """It should return 500 for an internal error"""
         _, code = error_handlers.internal_server_error("boom")
         self.assertEqual(code, status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    # Todo: Add your test cases here...
