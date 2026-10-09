@@ -145,6 +145,67 @@ class TestShopcartService(TestCase):
             "Shopcart with id '0' was not found",
             data["message"],
         )
+    
+    # ----------------------------------------------------------
+    # TEST ADD ITEM
+    # ----------------------------------------------------------
+    def test_add_item(self):
+        """It should add an item to an existing Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        item_data = {
+            "product_id": "123",
+            "name": "Test Product",
+            "description": "A test product",
+            "price": 10.0,
+            "quantity": 2,
+        }
+
+        response = self.client.post(
+            f"{BASE_URL}/{shopcart.id}/items",
+            json=item_data,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        data = response.get_json()
+        self.assertEqual(data["id"], shopcart.id)
+        self.assertEqual(len(data["items"]), 1)
+        self.assertEqual(data["items"][0]["product_id"], 123)
+        self.assertEqual(data["items"][0]["quantity"], 2)
+
+    def test_add_item_shopcart_not_found(self):
+        """It should return 404 when the Shopcart does not exist"""
+        item_data = {
+            "product_id": "123",
+            "name": "Test Product",
+            "description": "A test product",
+            "price": 10.0,
+            "quantity": 2,
+        }
+
+        response = self.client.post(
+            f"{BASE_URL}/0/items",
+            json=item_data,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_add_item_missing_content_type(self):
+        """It should return 415 when Content-Type is missing"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.post(
+            f"{BASE_URL}/{shopcart.id}/items",
+            data='{"product_id": "123"}',
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+        )
 
     ######################################################################
     #  E R R O R   H A N D L E R   T E S T S
