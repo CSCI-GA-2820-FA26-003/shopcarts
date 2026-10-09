@@ -125,6 +125,61 @@ def add_item(shopcart_id):
     return shopcart.serialize(), status.HTTP_201_CREATED
 
 ######################################################################
+# UPDATE A SHOPCART
+######################################################################
+@app.route("/shopcarts/<int:shopcart_id>", methods=["PUT"])
+def update_shopcart(shopcart_id):
+    """Update an existing Shopcart and replace its item list"""
+    app.logger.info("Request to update shopcart [%s]", shopcart_id)
+    check_content_type("application/json")
+
+    # Find the existing Shopcart
+    shopcart = Shopcart.find(shopcart_id)
+    if not shopcart:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Shopcart with id '{shopcart_id}' was not found",
+        )
+
+    # Get the updated data
+    data = request.get_json()
+    if not isinstance(data, dict):
+        abort(status.HTTP_400_BAD_REQUEST, "Request body must be a JSON object")
+
+    # Update customer_id if provided
+    if "customer_id" in data:
+        if not isinstance(data["customer_id"], int):
+            abort(
+                status.HTTP_400_BAD_REQUEST,
+                "customer_id must be an integer",
+            )
+        shopcart.customer_id = data["customer_id"]
+
+    # Replace the entire item list if provided
+    if "items" in data:
+        if not isinstance(data["items"], list):
+            abort(
+                status.HTTP_400_BAD_REQUEST,
+                "items must be a list",
+            )
+
+        # Delete all existing items
+        for item in list(shopcart.items):
+            item.delete()
+
+        # Add the new items
+        for item_data in data["items"]:
+            item = Item()
+            item.deserialize(item_data)
+            shopcart.items.append(item)
+
+    # Save the changes
+    shopcart.update()
+
+    app.logger.info("Shopcart [%s] updated", shopcart_id)
+    return shopcart.serialize(), status.HTTP_200_OK
+
+######################################################################
 # Checks the ContentType of a request
 ######################################################################
 def check_content_type(content_type) -> None:
