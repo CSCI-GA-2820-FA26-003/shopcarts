@@ -146,6 +146,155 @@ class TestShopcartService(TestCase):
             data["message"],
         )
 
+    # ----------------------------------------------------------
+    # TEST ADD ITEM
+    # ----------------------------------------------------------
+    def test_add_item(self):
+        """It should add an item to an existing Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        item_data = {
+            "product_id": "123",
+            "name": "Test Product",
+            "description": "A test product",
+            "price": 10.0,
+            "quantity": 2,
+        }
+
+        response = self.client.post(
+            f"{BASE_URL}/{shopcart.id}/items",
+            json=item_data,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        data = response.get_json()
+        self.assertEqual(data["id"], shopcart.id)
+        self.assertEqual(len(data["items"]), 1)
+        self.assertEqual(data["items"][0]["product_id"], 123)
+        self.assertEqual(data["items"][0]["quantity"], 2)
+
+    def test_add_item_shopcart_not_found(self):
+        """It should return 404 when the Shopcart does not exist"""
+        item_data = {
+            "product_id": "123",
+            "name": "Test Product",
+            "description": "A test product",
+            "price": 10.0,
+            "quantity": 2,
+        }
+
+        response = self.client.post(
+            f"{BASE_URL}/0/items",
+            json=item_data,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_add_item_missing_content_type(self):
+        """It should return 415 when Content-Type is missing"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.post(
+            f"{BASE_URL}/{shopcart.id}/items",
+            data='{"product_id": "123"}',
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+        )
+
+    ######################################################################
+    #  T E S T   U P D A T E
+    ######################################################################
+
+    def test_update_shopcart(self):
+        """It should update a shopcart and replace its items"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        old_item = {
+            "product_id": 101,
+            "name": "Old Product",
+            "description": "Old description",
+            "price": 5.0,
+            "quantity": 1,
+        }
+        response = self.client.post(
+            f"{BASE_URL}/{shopcart.id}/items",
+            json=old_item,
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        new_item = {
+            "product_id": 202,
+            "name": "New Product",
+            "description": "New description",
+            "price": 10.0,
+            "quantity": 2,
+        }
+        response = self.client.put(
+            f"{BASE_URL}/{shopcart.id}",
+            json={
+                "customer_id": shopcart.customer_id,
+                "items": [new_item],
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(data["id"], shopcart.id)
+        self.assertEqual(data["customer_id"], shopcart.customer_id)
+        self.assertEqual(len(data["items"]), 1)
+        self.assertEqual(data["items"][0]["product_id"], 202)
+        self.assertEqual(data["items"][0]["name"], "New Product")
+        self.assertEqual(data["items"][0]["quantity"], 2)
+
+    def test_update_shopcart_clear_items(self):
+        """It should clear all items and keep the shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.put(
+            f"{BASE_URL}/{shopcart.id}",
+            json={
+                "customer_id": shopcart.customer_id,
+                "items": [],
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(data["id"], shopcart.id)
+        self.assertEqual(data["items"], [])
+
+    def test_update_shopcart_not_found(self):
+        """It should return 404 when the shopcart does not exist"""
+        response = self.client.put(
+            f"{BASE_URL}/999999",
+            json={"customer_id": 123, "items": []},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_update_shopcart_invalid_items(self):
+        """It should return 400 when items is not a list"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.put(
+            f"{BASE_URL}/{shopcart.id}",
+            json={
+                "customer_id": shopcart.customer_id,
+                "items": "not-a-list",
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     ######################################################################
     #  E R R O R   H A N D L E R   T E S T S
     ######################################################################
