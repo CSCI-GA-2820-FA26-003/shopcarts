@@ -88,6 +88,41 @@ def get_shopcarts(shopcart_id):
         )
     return shopcart.serialize(), status.HTTP_200_OK
 
+######################################################################
+# ADD ITEM TO SHOPCART
+######################################################################
+@app.route("/shopcarts/<int:shopcart_id>/items", methods=["POST"])
+def add_item(shopcart_id):
+    """
+    Add an item to a Shopcart
+    This endpoint will add an item to an existing Shopcart
+    """
+    app.logger.info("Request to add an item to shopcart [%s]", shopcart_id)
+    check_content_type("application/json")
+
+    # Find the existing Shopcart
+    shopcart = Shopcart.find(shopcart_id)
+    if not shopcart:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Shopcart with id '{shopcart_id}' was not found",
+        )
+
+    # Get the item data from the request
+    data = request.get_json()
+    app.logger.info("Processing item: %s", data)
+
+    # Create the new item
+    item = Item()
+    item.deserialize(data)
+
+    # Add the item to the Shopcart and save
+    shopcart.items.append(item)
+    shopcart.update()
+
+    app.logger.info("Item added to shopcart [%s]", shopcart_id)
+
+    return shopcart.serialize(), status.HTTP_201_CREATED
 
 ######################################################################
 # Checks the ContentType of a request
