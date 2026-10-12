@@ -88,6 +88,7 @@ def get_shopcarts(shopcart_id):
         )
     return shopcart.serialize(), status.HTTP_200_OK
 
+
 ######################################################################
 # ADD ITEM TO SHOPCART
 ######################################################################
@@ -123,6 +124,7 @@ def add_item(shopcart_id):
     app.logger.info("Item added to shopcart [%s]", shopcart_id)
 
     return shopcart.serialize(), status.HTTP_201_CREATED
+
 
 ######################################################################
 # UPDATE A SHOPCART
@@ -178,6 +180,7 @@ def update_shopcart(shopcart_id):
 
     app.logger.info("Shopcart [%s] updated", shopcart_id)
     return shopcart.serialize(), status.HTTP_200_OK
+
 
 ######################################################################
 # LIST ITEMS IN A SHOPCART
