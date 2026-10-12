@@ -116,6 +116,7 @@ class TestShopcartService(TestCase):
 
         response = self.client.get(f"{BASE_URL}/{shopcart.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
 
         data = response.get_json()
         self.assertEqual(data["id"], shopcart.id)
@@ -128,6 +129,7 @@ class TestShopcartService(TestCase):
 
         response = self.client.get(f"{BASE_URL}/{shopcart.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
 
         data = response.get_json()
         self.assertEqual(data["id"], shopcart.id)
@@ -138,6 +140,7 @@ class TestShopcartService(TestCase):
         """It should return 404 when the Shopcart does not exist"""
         response = self.client.get(f"{BASE_URL}/0")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.mimetype, "application/json")
 
         data = response.get_json()
         self.assertEqual(data["error"], "Not Found")
