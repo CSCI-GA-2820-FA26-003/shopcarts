@@ -162,9 +162,7 @@ class TestItem(TestCase):
         """It should keep the existing shopcart_id when the data has none"""
         item = Item()
         item.shopcart_id = 7
-        item.deserialize(
-            {"product_id": 1, "name": "pen", "price": 1.25, "quantity": 2}
-        )
+        item.deserialize({"product_id": 1, "name": "pen", "price": 1.25, "quantity": 2})
         self.assertEqual(item.shopcart_id, 7)
         self.assertEqual(item.price, Decimal("1.25"))
         self.assertIsNone(item.description)  # description is optional
