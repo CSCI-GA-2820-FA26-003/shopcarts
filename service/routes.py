@@ -88,6 +88,7 @@ def get_shopcarts(shopcart_id):
         )
     return shopcart.serialize(), status.HTTP_200_OK
 
+
 ######################################################################
 # ADD ITEM TO SHOPCART
 ######################################################################
@@ -123,6 +124,7 @@ def add_item(shopcart_id):
     app.logger.info("Item added to shopcart [%s]", shopcart_id)
 
     return shopcart.serialize(), status.HTTP_201_CREATED
+
 
 ######################################################################
 # UPDATE A SHOPCART
@@ -178,6 +180,36 @@ def update_shopcart(shopcart_id):
 
     app.logger.info("Shopcart [%s] updated", shopcart_id)
     return shopcart.serialize(), status.HTTP_200_OK
+
+
+######################################################################
+# DELETE ITEM FROM SHOPCART
+######################################################################
+
+
+@app.route(
+    "/shopcarts/<int:shopcart_id>/items/<int:item_id>",
+    methods=["DELETE"],
+)
+def delete_item(shopcart_id, item_id):
+    """Remove an item from a shopcart."""
+    shopcart = Shopcart.find(shopcart_id)
+    if not shopcart:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Shopcart with id '{shopcart_id}' was not found",
+        )
+
+    item = Item.find(item_id)
+    if not item or item.shopcart_id != shopcart_id:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Item with id '{item_id}' was not found in shopcart '{shopcart_id}'",
+        )
+
+    item.delete()
+    return "", status.HTTP_204_NO_CONTENT
+
 
 ######################################################################
 # Checks the ContentType of a request
