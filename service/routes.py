@@ -202,6 +202,28 @@ def list_items(shopcart_id):
 
 
 ######################################################################
+# DELETE ALL ITEMS IN A SHOPCART
+######################################################################
+@app.route("/shopcarts/<int:shopcart_id>/items", methods=["DELETE"])
+def delete_all_items(shopcart_id):
+    """Deletes all items in the specified Shopcart but keeps the Shopcart"""
+    app.logger.info("Request to Delete all items in shopcart [%s]", shopcart_id)
+
+    shopcart = Shopcart.find(shopcart_id)
+    if not shopcart:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Shopcart with id '{shopcart_id}' was not found",
+        )
+
+    for item in list(shopcart.items):
+        item.delete()
+
+    app.logger.info("All items in shopcart [%s] deleted", shopcart_id)
+    return "", status.HTTP_204_NO_CONTENT
+
+
+######################################################################
 # Checks the ContentType of a request
 ######################################################################
 def check_content_type(content_type) -> None:

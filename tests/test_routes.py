@@ -205,6 +205,51 @@ class TestShopcartService(TestCase):
             data["message"],
         )
 
+    # TEST DELETE ALL ITEMS
+    # ----------------------------------------------------------
+    def test_delete_all_items(self):
+        """It should Delete all items in a Shopcart and keep the Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        for _ in range(3):
+            ItemFactory(shopcart=shopcart).create()
+
+        other_shopcart = ShopcartFactory()
+        other_shopcart.create()
+        other_item = ItemFactory(shopcart=other_shopcart)
+        other_item.create()
+
+        response = self.client.delete(f"{BASE_URL}/{shopcart.id}/items")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(response.data), 0)
+
+        # the shopcart still exists but is empty
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get_json()["items"], [])
+
+        # items in other shopcarts are untouched
+        response = self.client.get(f"{BASE_URL}/{other_shopcart.id}/items")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get_json(), [other_item.serialize()])
+
+    def test_delete_all_items_empty_shopcart(self):
+        """It should return 204 when deleting items from an empty Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.delete(f"{BASE_URL}/{shopcart.id}/items")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_delete_all_items_shopcart_not_found(self):
+        """It should return 404 when deleting items from a missing Shopcart"""
+        response = self.client.delete(f"{BASE_URL}/0/items")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn(
+            "Shopcart with id '0' was not found",
+            response.get_json()["message"],
+        )
+
     # TEST ADD ITEM
     # ----------------------------------------------------------
     def test_add_item(self):
