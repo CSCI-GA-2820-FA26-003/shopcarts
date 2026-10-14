@@ -183,8 +183,38 @@ def update_shopcart(shopcart_id):
 
 
 ######################################################################
+# DELETE ITEM FROM SHOPCART
+######################################################################
+
+@app.route(
+    "/shopcarts/<int:shopcart_id>/items/<int:item_id>",
+    methods=["DELETE"],
+)
+def delete_item(shopcart_id, item_id):
+    """Remove an item from a shopcart."""
+
+    shopcart = Shopcart.find(shopcart_id)
+    if not shopcart:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Shopcart with id '{shopcart_id}' was not found",
+        )
+
+    item = Item.find(item_id)
+    if not item or item.shopcart_id != shopcart_id:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Item with id '{item_id}' was not found in shopcart '{shopcart_id}'",
+        )
+
+    item.delete()
+    return "", status.HTTP_204_NO_CONTENT
+
+
+######################################################################
 # LIST ITEMS IN A SHOPCART
 ######################################################################
+
 @app.route("/shopcarts/<int:shopcart_id>/items", methods=["GET"])
 def list_items(shopcart_id):
     """Returns all items in the specified Shopcart"""
@@ -204,6 +234,7 @@ def list_items(shopcart_id):
 ######################################################################
 # DELETE ALL ITEMS IN A SHOPCART
 ######################################################################
+
 @app.route("/shopcarts/<int:shopcart_id>/items", methods=["DELETE"])
 def delete_all_items(shopcart_id):
     """Deletes all items in the specified Shopcart but keeps the Shopcart"""
