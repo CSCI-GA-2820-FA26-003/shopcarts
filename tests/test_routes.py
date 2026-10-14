@@ -26,7 +26,7 @@ from wsgi import app
 from service.common import status
 from service.models import db, Shopcart, Item, DataValidationError
 from service.common import error_handlers
-from .factories import ShopcartFactory
+from .factories import ShopcartFactory, ItemFactory
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"
@@ -59,7 +59,7 @@ class TestShopcartService(TestCase):
     def setUp(self):
         """Runs before each test"""
         self.client = app.test_client()
-        db.session.query(Item).delete()  # clean up the last tests
+        db.session.query(Item).delete()
         db.session.query(Shopcart).delete()
         db.session.commit()
 
@@ -150,6 +150,106 @@ class TestShopcartService(TestCase):
         )
 
     # ----------------------------------------------------------
+    # TEST LIST ITEMS
+    # ----------------------------------------------------------
+    def test_list_items(self):
+        """It should List only items in the requested Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        item1 = ItemFactory(shopcart=shopcart)
+        item1.create()
+        item2 = ItemFactory(shopcart=shopcart)
+        item2.create()
+
+        other_shopcart = ShopcartFactory()
+        other_shopcart.create()
+        other_item = ItemFactory(shopcart=other_shopcart)
+        other_item.create()
+
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}/items")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
+
+        data = response.get_json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 2)
+
+        expected = sorted(
+            [item1.serialize(), item2.serialize()],
+            key=lambda item: item["id"],
+        )
+        actual = sorted(data, key=lambda item: item["id"])
+        self.assertEqual(actual, expected)
+
+    def test_list_empty_shopcart(self):
+        """It should return an empty list for an empty Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}/items")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(response.get_json(), [])
+
+    def test_list_items_shopcart_not_found(self):
+        """It should return 404 when the Shopcart does not exist"""
+        response = self.client.get(f"{BASE_URL}/0/items")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.mimetype, "application/json")
+
+        data = response.get_json()
+        self.assertEqual(data["error"], "Not Found")
+        self.assertIn(
+            "Shopcart with id '0' was not found",
+            data["message"],
+        )
+
+    # TEST DELETE ALL ITEMS
+    # ----------------------------------------------------------
+    def test_delete_all_items(self):
+        """It should Delete all items in a Shopcart and keep the Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        for _ in range(3):
+            ItemFactory(shopcart=shopcart).create()
+
+        other_shopcart = ShopcartFactory()
+        other_shopcart.create()
+        other_item = ItemFactory(shopcart=other_shopcart)
+        other_item.create()
+
+        response = self.client.delete(f"{BASE_URL}/{shopcart.id}/items")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(response.data), 0)
+
+        # the shopcart still exists but is empty
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get_json()["items"], [])
+
+        # items in other shopcarts are untouched
+        response = self.client.get(f"{BASE_URL}/{other_shopcart.id}/items")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get_json(), [other_item.serialize()])
+
+    def test_delete_all_items_empty_shopcart(self):
+        """It should return 204 when deleting items from an empty Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.delete(f"{BASE_URL}/{shopcart.id}/items")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_delete_all_items_shopcart_not_found(self):
+        """It should return 404 when deleting items from a missing Shopcart"""
+        response = self.client.delete(f"{BASE_URL}/0/items")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn(
+            "Shopcart with id '0' was not found",
+            response.get_json()["message"],
+        )
+
     # TEST ADD ITEM
     # ----------------------------------------------------------
     def test_add_item(self):
