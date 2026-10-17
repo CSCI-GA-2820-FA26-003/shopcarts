@@ -30,16 +30,11 @@ from service.common import status  # HTTP Status Codes
 ######################################################################
 # GET INDEX
 ######################################################################
-@app.route("/", methods=["GET"])
+@app.route("/")
 def index():
     """Root URL response"""
-    app.logger.info("Request for Root URL")
     return (
-        jsonify(
-            name="shopcarts Demo REST API Service",
-            version=app.config.get("VERSION", "1.0"),
-            paths=url_for("list_shopcarts", _external=True),
-        ),
+        "Reminder: return some useful information in json format about the service here",
         status.HTTP_200_OK,
     )
 
@@ -47,22 +42,6 @@ def index():
 ######################################################################
 #  R E S T   A P I   E N D P O I N T S
 ######################################################################
-
-
-######################################################################
-# LIST ALL SHOPCARTS
-######################################################################
-@app.route("/shopcarts", methods=["GET"])
-def list_shopcarts():
-    """Returns all of the Shopcarts"""
-    app.logger.info("Request for shopcarts list")
-
-    # Return all of the Shopcarts
-    shopcarts = Shopcart.all()
-
-    results = [shopcart.serialize() for shopcart in shopcarts]
-    app.logger.info("Returning %d shopcarts", len(results))
-    return results, status.HTTP_200_OK
 
 
 ######################################################################
