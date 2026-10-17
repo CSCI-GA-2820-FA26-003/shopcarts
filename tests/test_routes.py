@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ######################################################################
-
 """
 TestShopcartService API Service Test Suite
 """
@@ -75,6 +74,40 @@ class TestShopcartService(TestCase):
         """It should call the home page"""
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    # ----------------------------------------------------------
+    # TEST LIST SHOPCARTS
+    # ----------------------------------------------------------
+
+    def test_list_shopcarts_empty(self):
+        """It should return an empty list when no Shopcarts exist"""
+        response = self.client.get(BASE_URL)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(response.get_json(), [])
+
+    def test_list_shopcarts(self):
+        """It should list all shopcarts, including there items"""
+        shopcarts = ShopcartFactory.create_batch(3)
+        ItemFactory(shopcart=shopcarts[0])
+
+        for shopcart in shopcarts:
+            shopcart.create()
+        response = self.client.get(BASE_URL)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
+
+        data = response.get_json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), len(shopcarts))
+
+        expected = sorted(
+            [shopcart.serialize() for shopcart in shopcarts],
+            key=lambda shopcart: shopcart["id"],
+        )
+        actual = sorted(data, key=lambda shopcart: shopcart["id"])
+        self.assertEqual(actual, expected)
 
     # ----------------------------------------------------------
     # TEST CREATE
@@ -205,6 +238,7 @@ class TestShopcartService(TestCase):
             data["message"],
         )
 
+    # ----------------------------------------------------------
     # TEST DELETE ALL ITEMS
     # ----------------------------------------------------------
     def test_delete_all_items(self):
@@ -250,6 +284,7 @@ class TestShopcartService(TestCase):
             response.get_json()["message"],
         )
 
+    # ----------------------------------------------------------
     # TEST ADD ITEM
     # ----------------------------------------------------------
     def test_add_item(self):
@@ -310,9 +345,9 @@ class TestShopcartService(TestCase):
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
         )
 
-    ######################################################################
+    # --------------------------------------------------------------------
     #  T E S T   U P D A T E
-    ######################################################################
+    # --------------------------------------------------------------------
 
     def test_update_shopcart(self):
         """It should update a shopcart and replace its items"""
