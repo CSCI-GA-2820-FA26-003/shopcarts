@@ -285,6 +285,39 @@ class TestShopcartService(TestCase):
         )
 
     # ----------------------------------------------------------
+    # TEST DELETE SHOPCART
+    # ----------------------------------------------------------
+    def test_delete_shopcart(self):
+        """It should Delete a Shopcart and its Items"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        item = ItemFactory(shopcart=shopcart)
+        item.create()
+        shopcart_id, item_id = shopcart.id, item.id
+
+        other_shopcart = ShopcartFactory()
+        other_shopcart.create()
+
+        response = self.client.delete(f"{BASE_URL}/{shopcart_id}")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(response.data), 0)
+
+        # the shopcart and its items are gone
+        response = self.client.get(f"{BASE_URL}/{shopcart_id}")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIsNone(Item.find(item_id))
+
+        # other shopcarts are untouched
+        response = self.client.get(f"{BASE_URL}/{other_shopcart.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_delete_shopcart_not_found(self):
+        """It should return 204 when deleting a Shopcart that does not exist"""
+        response = self.client.delete(f"{BASE_URL}/0")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(response.data), 0)
+
+    # ----------------------------------------------------------
     # TEST ADD ITEM
     # ----------------------------------------------------------
     def test_add_item(self):
