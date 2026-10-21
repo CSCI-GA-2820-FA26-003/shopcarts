@@ -204,6 +204,25 @@ def update_shopcart(shopcart_id):
 
 
 ######################################################################
+# DELETE A SHOPCART
+######################################################################
+@app.route("/shopcarts/<int:shopcart_id>", methods=["DELETE"])
+def delete_shopcarts(shopcart_id):
+    """
+    Delete a Shopcart
+    This endpoint will delete a Shopcart and all of its Items
+    """
+    app.logger.info("Request to Delete a shopcart with id [%s]", shopcart_id)
+
+    shopcart = Shopcart.find(shopcart_id)
+    if shopcart:
+        shopcart.delete()
+        app.logger.info("Shopcart with id [%s] deleted", shopcart_id)
+
+    return "", status.HTTP_204_NO_CONTENT
+
+
+######################################################################
 # DELETE ITEM FROM SHOPCART
 ######################################################################
 
