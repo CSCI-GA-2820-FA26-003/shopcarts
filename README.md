@@ -47,7 +47,39 @@ make lint
 ```
 
 This runs Flake8 and Pylint. Check the output for errors and warnings, even if the command finishes.
+## Database
 
+The service uses two tables in PostgreSQL, defined in `service/models/`.
+
+```text
+shopcart (1) ──────< (many) item
+```
+
+**shopcart**
+
+| Column | Type | Constraints |
+| --- | --- | --- |
+| `id` | Integer | Primary key |
+| `customer_id` | Integer | Not null, unique |
+
+**item**
+
+| Column | Type | Constraints |
+| --- | --- | --- |
+| `id` | Integer | Primary key |
+| `shopcart_id` | Integer | Foreign key to `shopcart.id`, not null, `ON DELETE CASCADE` |
+| `product_id` | Integer | Not null |
+| `name` | String(64) | Not null |
+| `description` | String(256) | Optional |
+| `price` | Numeric(10, 2) | Not null |
+| `quantity` | Integer | Not null, default 1 |
+
+Notes:
+
+- `customer_id` is unique, so the database itself prevents a second shopcart for the same customer.
+- Deleting a shopcart deletes all of its items (cascade).
+- `price` is stored as a fixed-point decimal to avoid floating-point rounding errors.
+- `quantity` must be a positive integer. This is enforced when a request is deserialized, not by a database constraint.
 ## API
 
 Every response with a body is JSON; `DELETE` returns `204 No Content` with an empty body. `POST` and `PUT` requests must send `Content-Type: application/json`.
