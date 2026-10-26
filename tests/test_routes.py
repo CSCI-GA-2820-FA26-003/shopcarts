@@ -542,6 +542,67 @@ class TestShopcartService(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.get_json()["items"], [item])
 
+    # ----------------------------------------------------------
+    # TEST SHOPCART TOTAL
+    # ----------------------------------------------------------
+    def test_get_shopcart_total(self):
+        """It should calculate the total for only the requested Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        ItemFactory(
+            shopcart=shopcart,
+            price="10.25",
+            quantity=2,
+        ).create()
+        ItemFactory(
+            shopcart=shopcart,
+            price="5.10",
+            quantity=3,
+        ).create()
+
+        other_shopcart = ShopcartFactory()
+        other_shopcart.create()
+        ItemFactory(
+            shopcart=other_shopcart,
+            price="100.00",
+            quantity=1,
+        ).create()
+
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}/total")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
+
+        data = response.get_json()
+        self.assertEqual(data["shopcart_id"], shopcart.id)
+        self.assertEqual(data["total"], 35.80)
+
+    def test_get_empty_shopcart_total(self):
+        """It should return zero for an empty Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}/total")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
+
+        data = response.get_json()
+        self.assertEqual(data["shopcart_id"], shopcart.id)
+        self.assertEqual(data["total"], 0)
+
+    def test_get_shopcart_total_not_found(self):
+        """It should return 404 when the Shopcart does not exist"""
+        response = self.client.get(f"{BASE_URL}/0/total")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertIn(
+            "Shopcart with id '0' was not found",
+            response.get_json()["message"],
+        )
+
     ######################################################################
     #  E R R O R   H A N D L E R   T E S T S
     ######################################################################

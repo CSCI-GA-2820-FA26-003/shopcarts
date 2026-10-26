@@ -111,6 +111,30 @@ def get_shopcarts(shopcart_id):
 
 
 ######################################################################
+# GET SHOPCART TOTAL
+######################################################################
+@app.route("/shopcarts/<int:shopcart_id>/total", methods=["GET"])
+def get_shopcart_total(shopcart_id):
+    """Returns the total price of a Shopcart"""
+    app.logger.info("Request for total of shopcart [%s]", shopcart_id)
+
+    shopcart = Shopcart.find(shopcart_id)
+    if not shopcart:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Shopcart with id '{shopcart_id}' was not found",
+        )
+
+    return (
+        jsonify(
+            shopcart_id=shopcart.id,
+            total=float(shopcart.calculate_total()),
+        ),
+        status.HTTP_200_OK,
+    )
+
+
+######################################################################
 # ADD ITEM TO SHOPCART
 ######################################################################
 @app.route("/shopcarts/<int:shopcart_id>/items", methods=["POST"])
@@ -226,6 +250,7 @@ def delete_shopcarts(shopcart_id):
 # DELETE ITEM FROM SHOPCART
 ######################################################################
 
+
 @app.route(
     "/shopcarts/<int:shopcart_id>/items/<int:item_id>",
     methods=["DELETE"],
@@ -255,6 +280,7 @@ def delete_item(shopcart_id, item_id):
 # LIST ITEMS IN A SHOPCART
 ######################################################################
 
+
 @app.route("/shopcarts/<int:shopcart_id>/items", methods=["GET"])
 def list_items(shopcart_id):
     """Returns all items in the specified Shopcart"""
@@ -274,6 +300,7 @@ def list_items(shopcart_id):
 ######################################################################
 # DELETE ALL ITEMS IN A SHOPCART
 ######################################################################
+
 
 @app.route("/shopcarts/<int:shopcart_id>/items", methods=["DELETE"])
 def delete_all_items(shopcart_id):
