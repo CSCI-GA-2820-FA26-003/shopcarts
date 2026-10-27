@@ -168,7 +168,13 @@ def add_item(shopcart_id):
 
     app.logger.info("Item added to shopcart [%s]", shopcart_id)
 
-    return shopcart.serialize(), status.HTTP_201_CREATED
+    location_url = url_for(
+        "update_item",
+        shopcart_id=shopcart_id,
+        item_id=item.id,
+        _external=True,
+    )
+    return item.serialize(), status.HTTP_201_CREATED, {"Location": location_url}
 
 
 ######################################################################

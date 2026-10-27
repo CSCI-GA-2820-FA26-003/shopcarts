@@ -320,8 +320,9 @@ class TestShopcartService(TestCase):
     # ----------------------------------------------------------
     # TEST ADD ITEM
     # ----------------------------------------------------------
+
     def test_add_item(self):
-        """It should add an item to an existing Shopcart"""
+        """It should add an item to an existing Shopcart."""
         shopcart = ShopcartFactory()
         shopcart.create()
 
@@ -340,14 +341,28 @@ class TestShopcartService(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
+        # Check that the response contains the new item
         data = response.get_json()
-        self.assertEqual(data["id"], shopcart.id)
-        self.assertEqual(len(data["items"]), 1)
-        self.assertEqual(data["items"][0]["product_id"], 123)
-        self.assertEqual(data["items"][0]["quantity"], 2)
+        self.assertEqual(data["shopcart_id"], shopcart.id)
+        self.assertEqual(data["product_id"], 123)
+        self.assertEqual(data["name"], "Test Product")
+        self.assertEqual(data["quantity"], 2)
+        self.assertNotIn("items", data)
+
+        # Check the Location header points to the new item
+        location = response.headers.get("Location")
+        self.assertIsNotNone(location)
+        self.assertTrue(
+            location.endswith(f"/shopcarts/{shopcart.id}/items/{data['id']}")
+        )
+
+        # Check that the item was saved
+        saved_item = Item.find(data["id"])
+        self.assertIsNotNone(saved_item)
+        self.assertEqual(saved_item.shopcart_id, shopcart.id)
 
     def test_add_item_shopcart_not_found(self):
-        """It should return 404 when the Shopcart does not exist"""
+        """It should return 404 when the Shopcart does not exist."""
         item_data = {
             "product_id": "123",
             "name": "Test Product",
@@ -364,7 +379,7 @@ class TestShopcartService(TestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_add_item_missing_content_type(self):
-        """It should return 415 when Content-Type is missing"""
+        """It should return 415 when Content-Type is missing."""
         shopcart = ShopcartFactory()
         shopcart.create()
 
