@@ -174,6 +174,8 @@ def add_item(shopcart_id):
 ######################################################################
 # UPDATE A SHOPCART
 ######################################################################
+
+
 @app.route("/shopcarts/<int:shopcart_id>", methods=["PUT"])
 def update_shopcart(shopcart_id):
     """Update an existing Shopcart and replace its item list"""
@@ -228,8 +230,65 @@ def update_shopcart(shopcart_id):
 
 
 ######################################################################
+# UPDATE AN ITEM IN A SHOPCART
+######################################################################
+
+
+@app.route(
+    "/shopcarts/<int:shopcart_id>/items/<int:item_id>",
+    methods=["PUT"],
+)
+def update_item(shopcart_id, item_id):
+    """Update an existing item in a shopcart."""
+    app.logger.info(
+        "Request to update item [%s] in shopcart [%s]", item_id, shopcart_id
+    )
+    check_content_type("application/json")
+
+    # Find the shopcart
+    shopcart = Shopcart.find(shopcart_id)
+    if not shopcart:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Shopcart with id '{shopcart_id}' was not found",
+        )
+
+    # Find the item and check that it belongs to this shopcart
+    item = Item.find(item_id)
+    if not item or item.shopcart_id != shopcart_id:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Item with id '{item_id}' was not found in shopcart '{shopcart_id}'",
+        )
+
+    # Validate the request using a temporary item
+    data = request.get_json()
+    if not isinstance(data, dict):
+        abort(status.HTTP_400_BAD_REQUEST, "Request body must be a JSON object")
+
+    # The URL determines which shopcart owns the item
+    data = dict(data)
+    data.pop("shopcart_id", None)
+
+    updated_item = Item()
+    updated_item.deserialize(data)
+
+    # Copy the validated values to the existing item
+    item.product_id = updated_item.product_id
+    item.name = updated_item.name
+    item.description = updated_item.description
+    item.price = updated_item.price
+    item.quantity = updated_item.quantity
+    item.update()
+    app.logger.info("Item [%s] updated", item_id)
+
+    return item.serialize(), status.HTTP_200_OK
+
+
+######################################################################
 # DELETE A SHOPCART
 ######################################################################
+
 @app.route("/shopcarts/<int:shopcart_id>", methods=["DELETE"])
 def delete_shopcarts(shopcart_id):
     """
@@ -324,6 +383,8 @@ def delete_all_items(shopcart_id):
 ######################################################################
 # Checks the ContentType of a request
 ######################################################################
+
+
 def check_content_type(content_type) -> None:
     """Checks that the media type is correct"""
     if "Content-Type" not in request.headers:
@@ -346,6 +407,8 @@ def check_content_type(content_type) -> None:
 ########################################################################
 # Logs error messages before aborting
 ########################################################################
+
+
 def error(status_code, reason):
     """Logs the error and then aborts"""
     app.logger.error(reason)
