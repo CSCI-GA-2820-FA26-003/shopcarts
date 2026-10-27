@@ -19,6 +19,7 @@ Shopcart Model
 """
 
 import logging
+from decimal import Decimal
 from .persistent_base import db, PersistentBase, DataValidationError
 from .item import Item
 
@@ -41,6 +42,13 @@ class Shopcart(db.Model, PersistentBase):
 
     def __repr__(self):
         return f"<Shopcart customer=[{self.customer_id}] id=[{self.id}]>"
+
+    def calculate_total(self):
+        """Calculates the total price of all items in the Shopcart"""
+        total = Decimal("0.00")
+        for item in self.items:
+            total += item.price * item.quantity
+        return total
 
     def serialize(self) -> dict:
         """Converts a Shopcart into a dictionary"""
