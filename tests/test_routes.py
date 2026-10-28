@@ -183,6 +183,74 @@ class TestShopcartService(TestCase):
         )
 
     # ----------------------------------------------------------
+    # TEST READ ITEM
+    # ----------------------------------------------------------
+
+    def test_read_item(self):
+        """It should Read a specific item from a Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        item = ItemFactory(shopcart=shopcart)
+        item.create()
+        ItemFactory(shopcart=shopcart).create()
+
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}/items/{item.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(response.get_json(), item.serialize())
+
+    def test_read_item_shopcart_not_found(self):
+        """It should return 404 when the Shopcart does not exist"""
+        response = self.client.get(f"{BASE_URL}/0/items/0")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertIn(
+            "Shopcart with id '0' was not found",
+            response.get_json()["message"],
+        )
+
+    def test_read_item_not_found(self):
+        """It should return 404 when the item does not exist"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}/items/0")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertIn(
+            f"Item with id '0' was not found in shopcart '{shopcart.id}'",
+            response.get_json()["message"],
+        )
+
+    def test_read_item_from_another_shopcart(self):
+        """It should not Read an item from another Shopcart"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        other_shopcart = ShopcartFactory()
+        other_shopcart.create()
+        item = ItemFactory(shopcart=other_shopcart)
+        item.create()
+
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}/items/{item.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.mimetype, "application/json")
+
+        data = response.get_json()
+        self.assertEqual(data["error"], "Not Found")
+        self.assertIn(
+            f"Item with id '{item.id}' was not found " f"in shopcart '{shopcart.id}'",
+            data["message"],
+        )
+        self.assertNotIn("name", data)
+        self.assertNotIn("price", data)
+
+    # ----------------------------------------------------------
     # TEST LIST ITEMS
     # ----------------------------------------------------------
     def test_list_items(self):
