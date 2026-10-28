@@ -277,6 +277,38 @@ def delete_item(shopcart_id, item_id):
 
 
 ######################################################################
+# READ AN ITEM FROM A SHOPCART
+######################################################################
+@app.route(
+    "/shopcarts/<int:shopcart_id>/items/<int:item_id>",
+    methods=["GET"],
+)
+def get_item(shopcart_id, item_id):
+    """Returns a specific item from a Shopcart"""
+    app.logger.info(
+        "Request to Read item [%s] in shopcart [%s]",
+        item_id,
+        shopcart_id,
+    )
+
+    shopcart = Shopcart.find(shopcart_id)
+    if not shopcart:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Shopcart with id '{shopcart_id}' was not found",
+        )
+
+    item = Item.find(item_id)
+    if not item or item.shopcart_id != shopcart_id:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Item with id '{item_id}' was not found " f"in shopcart '{shopcart_id}'",
+        )
+
+    return item.serialize(), status.HTTP_200_OK
+
+
+######################################################################
 # LIST ITEMS IN A SHOPCART
 ######################################################################
 
