@@ -322,22 +322,15 @@ def delete_shopcarts(shopcart_id):
 )
 def delete_item(shopcart_id, item_id):
     """Remove an item from a shopcart."""
-
-    shopcart = Shopcart.find(shopcart_id)
-    if not shopcart:
-        abort(
-            status.HTTP_404_NOT_FOUND,
-            f"Shopcart with id '{shopcart_id}' was not found",
-        )
+    app.logger.info(
+        "Request to Delete item [%s] from shopcart [%s]", item_id, shopcart_id
+    )
 
     item = Item.find(item_id)
-    if not item or item.shopcart_id != shopcart_id:
-        abort(
-            status.HTTP_404_NOT_FOUND,
-            f"Item with id '{item_id}' was not found in shopcart '{shopcart_id}'",
-        )
+    if item and item.shopcart_id == shopcart_id:
+        item.delete()
+        app.logger.info("Item [%s] deleted from shopcart [%s]", item_id, shopcart_id)
 
-    item.delete()
     return "", status.HTTP_204_NO_CONTENT
 
 
@@ -373,16 +366,11 @@ def delete_all_items(shopcart_id):
     app.logger.info("Request to Delete all items in shopcart [%s]", shopcart_id)
 
     shopcart = Shopcart.find(shopcart_id)
-    if not shopcart:
-        abort(
-            status.HTTP_404_NOT_FOUND,
-            f"Shopcart with id '{shopcart_id}' was not found",
-        )
+    if shopcart:
+        for item in list(shopcart.items):
+            item.delete()
+        app.logger.info("All items in shopcart [%s] deleted", shopcart_id)
 
-    for item in list(shopcart.items):
-        item.delete()
-
-    app.logger.info("All items in shopcart [%s] deleted", shopcart_id)
     return "", status.HTTP_204_NO_CONTENT
 
 

@@ -276,13 +276,10 @@ class TestShopcartService(TestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_delete_all_items_shopcart_not_found(self):
-        """It should return 404 when deleting items from a missing Shopcart"""
+        """It should return 204 when deleting items from a missing Shopcart"""
         response = self.client.delete(f"{BASE_URL}/0/items")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertIn(
-            "Shopcart with id '0' was not found",
-            response.get_json()["message"],
-        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(response.data), 0)
 
     # ----------------------------------------------------------
     # TEST DELETE SHOPCART
@@ -503,7 +500,7 @@ class TestShopcartService(TestCase):
             json=item_data,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        item_id = response.get_json()["items"][0]["id"]
+        item_id = response.get_json()["id"]
 
         response = self.client.delete(f"{BASE_URL}/{shopcart.id}/items/{item_id}")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
@@ -514,19 +511,21 @@ class TestShopcartService(TestCase):
         self.assertEqual(response.get_json()["items"], [])
 
     def test_delete_item_shopcart_not_found(self):
-        """It should return 404 when the Shopcart does not exist"""
+        """It should return 204 when the Shopcart does not exist"""
         response = self.client.delete(f"{BASE_URL}/0/items/0")
 
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.data, b"")
 
     def test_delete_item_not_found(self):
-        """It should return 404 when the Item does not exist"""
+        """It should return 204 when the Item does not exist"""
         shopcart = ShopcartFactory()
         shopcart.create()
 
         response = self.client.delete(f"{BASE_URL}/{shopcart.id}/items/0")
 
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.data, b"")
 
     def test_delete_item_from_another_shopcart(self):
         """It should not remove an item belonging to another Shopcart"""
@@ -548,10 +547,10 @@ class TestShopcartService(TestCase):
             json=item_data,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        item = response.get_json()["items"][0]
+        item = response.get_json()
 
         response = self.client.delete(f"{BASE_URL}/{shopcart.id}/items/{item['id']}")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         response = self.client.get(f"{BASE_URL}/{other_shopcart.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
