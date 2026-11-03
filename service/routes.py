@@ -26,6 +26,9 @@ from flask import current_app as app  # Import Flask application
 from service.models import Shopcart, Item
 from service.common import status  # HTTP Status Codes
 
+# Largest value a PostgreSQL INTEGER column can hold
+MAX_CUSTOMER_ID = 2**31 - 1
+
 
 ######################################################################
 # GET INDEX
@@ -54,11 +57,28 @@ def index():
 ######################################################################
 @app.route("/shopcarts", methods=["GET"])
 def list_shopcarts():
-    """Returns all of the Shopcarts"""
+    """Returns all of the Shopcarts, optionally filtered by customer_id"""
     app.logger.info("Request for shopcarts list")
 
-    # Return all of the Shopcarts
-    shopcarts = Shopcart.all()
+    customer_id = request.args.get("customer_id")
+    if customer_id is not None:
+        # isascii() rejects Unicode digits like "²"; the upper bound keeps
+        # values that overflow PostgreSQL's INTEGER column out of the query
+        if (
+            not (customer_id.isascii() and customer_id.isdigit())
+            or int(customer_id) > MAX_CUSTOMER_ID
+        ):
+            abort(
+                status.HTTP_400_BAD_REQUEST,
+                f"customer_id must be an integer, got '{customer_id}'",
+            )
+        app.logger.info("Filtering by customer_id: %s", customer_id)
+        # customer_id is unique, so there is at most one matching shopcart
+        shopcart = Shopcart.find_by_customer_id(int(customer_id))
+        shopcarts = [shopcart] if shopcart else []
+    else:
+        # Return all of the Shopcarts
+        shopcarts = Shopcart.all()
 
     results = [shopcart.serialize() for shopcart in shopcarts]
     app.logger.info("Returning %d shopcarts", len(results))

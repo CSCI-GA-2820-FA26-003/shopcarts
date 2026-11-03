@@ -109,6 +109,40 @@ class TestShopcartService(TestCase):
         actual = sorted(data, key=lambda shopcart: shopcart["id"])
         self.assertEqual(actual, expected)
 
+    def test_query_shopcarts_by_customer_id(self):
+        """It should return only the Shopcart for the given customer_id"""
+        shopcarts = ShopcartFactory.create_batch(3)
+        for shopcart in shopcarts:
+            shopcart.create()
+        target = shopcarts[1]
+
+        response = self.client.get(
+            BASE_URL, query_string=f"customer_id={target.customer_id}"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.get_json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["id"], target.id)
+        self.assertEqual(data[0]["customer_id"], target.customer_id)
+
+    def test_query_shopcarts_by_customer_id_not_found(self):
+        """It should return an empty list when no Shopcart matches the customer_id"""
+        for shopcart in ShopcartFactory.create_batch(2):
+            shopcart.create()
+
+        response = self.client.get(BASE_URL, query_string="customer_id=0")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get_json(), [])
+
+    def test_query_shopcarts_bad_customer_id(self):
+        """It should return 400 when customer_id is not an integer"""
+        for bad_id in ["abc", "", "-1", "1.5", "²", "2147483648"]:
+            response = self.client.get(BASE_URL, query_string={"customer_id": bad_id})
+            self.assertEqual(
+                response.status_code, status.HTTP_400_BAD_REQUEST, f"customer_id={bad_id!r}"
+            )
+
     # ----------------------------------------------------------
     # TEST CREATE
     # ----------------------------------------------------------
