@@ -6,6 +6,7 @@ Built with Flask, SQLAlchemy, and PostgreSQL.
 
 ### Continuous Integration
 [![CI](https://github.com/CSCI-GA-2820-FA26-003/shopcarts/actions/workflows/ci.yml/badge.svg)](https://github.com/CSCI-GA-2820-FA26-003/shopcarts/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/github/CSCI-GA-2820-FA26-003/shopcarts/graph/badge.svg?token=6SS68Z8251)](https://codecov.io/github/CSCI-GA-2820-FA26-003/shopcarts)
 
 ## Local Setup
 
