@@ -262,6 +262,9 @@ Every error is returned as JSON in this format, never as HTML:
 {"status": 404, "error": "Not Found", "message": "404 Not Found: Shopcart with id '7' was not found"}
 ```
 
+### Continuous Integration
+[![CI](https://github.com/CSCI-GA-2820-FA26-003/shopcarts/actions/workflows/ci.yml/badge.svg)](https://github.com/CSCI-GA-2820-FA26-003/shopcarts/actions/workflows/ci.yml)
+
 ## Project Layout
 
 | Path | Contents |
