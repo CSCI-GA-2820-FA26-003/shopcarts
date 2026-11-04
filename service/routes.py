@@ -315,6 +315,7 @@ def update_item(shopcart_id, item_id):
 # DELETE A SHOPCART
 ######################################################################
 
+
 @app.route("/shopcarts/<int:shopcart_id>", methods=["DELETE"])
 def delete_shopcarts(shopcart_id):
     """
@@ -459,3 +460,12 @@ def error(status_code, reason):
     """Logs the error and then aborts"""
     app.logger.error(reason)
     abort(status_code, reason)
+
+
+########################################################################
+# Health Check
+########################################################################
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Returns service health status"""
+    return jsonify(status="OK"), status.HTTP_200_OK
