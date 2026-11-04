@@ -4,6 +4,9 @@ Shopcart service for NYU CSCI-GA.2820-003, DevOps and Agile Methodologies. Each 
 
 Built with Flask, SQLAlchemy, and PostgreSQL.
 
+### Continuous Integration
+[![CI](https://github.com/CSCI-GA-2820-FA26-003/shopcarts/actions/workflows/ci.yml/badge.svg)](https://github.com/CSCI-GA-2820-FA26-003/shopcarts/actions/workflows/ci.yml)
+
 ## Local Setup
 
 You will need Git, Docker Desktop, and VS Code with the Dev Containers extension.
@@ -262,8 +265,6 @@ Every error is returned as JSON in this format, never as HTML:
 {"status": 404, "error": "Not Found", "message": "404 Not Found: Shopcart with id '7' was not found"}
 ```
 
-### Continuous Integration
-[![CI](https://github.com/CSCI-GA-2820-FA26-003/shopcarts/actions/workflows/ci.yml/badge.svg)](https://github.com/CSCI-GA-2820-FA26-003/shopcarts/actions/workflows/ci.yml)
 
 ## Project Layout
 
