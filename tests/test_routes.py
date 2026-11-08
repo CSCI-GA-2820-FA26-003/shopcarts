@@ -140,7 +140,9 @@ class TestShopcartService(TestCase):
         for bad_id in ["abc", "", "-1", "1.5", "²", "2147483648"]:
             response = self.client.get(BASE_URL, query_string={"customer_id": bad_id})
             self.assertEqual(
-                response.status_code, status.HTTP_400_BAD_REQUEST, f"customer_id={bad_id!r}"
+                response.status_code,
+                status.HTTP_400_BAD_REQUEST,
+                f"customer_id={bad_id!r}",
             )
 
     # ----------------------------------------------------------
@@ -898,3 +900,17 @@ class TestShopcartService(TestCase):
             response.status_code,
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
         )
+
+    # ----------------------------------------------------------
+    # TEST HEALTH CHECK
+    # ----------------------------------------------------------
+
+    def test_health(self):
+        """It should be healthy"""
+        response = self.client.get("/health")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.mimetype, "application/json")
+
+        self.assertEqual(response.get_json(), {"status": "OK"})
