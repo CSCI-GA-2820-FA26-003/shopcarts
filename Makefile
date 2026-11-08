@@ -14,6 +14,7 @@ CLUSTER ?= nyu-devops
 KUBE_CONTEXT ?= k3d-$(CLUSTER)
 NAMESPACE ?= default
 HTTP_PORT ?= 8080
+BASE_URL ?= http://127.0.0.1:$(HTTP_PORT)
 
 KUBECTL = kubectl --context $(KUBE_CONTEXT) --namespace $(NAMESPACE)
 
@@ -51,6 +52,10 @@ lint: ## Run the linter
 test: ## Run the unit tests
 	$(info Running tests...)
 	export RETRY_COUNT=1; pytest --pspec --cov=service --cov-fail-under=95 --disable-warnings
+
+.PHONY: bdd
+bdd: ## Run browser scenarios against the deployed application
+	BASE_URL="$(BASE_URL)" behave
 
 .PHONY: run
 run: ## Run the service

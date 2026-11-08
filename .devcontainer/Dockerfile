@@ -1,5 +1,5 @@
 # Image for a NYU Lab development environment
-FROM rofrano/nyu-devops-base:fa26
+FROM quay.io/rofrano/pipeline-selenium:sp26
 
 ARG USERNAME=vscode
 USER root
@@ -7,8 +7,7 @@ USER root
 # Set up the Python development environment
 WORKDIR /app
 COPY Pipfile Pipfile.lock ./
-RUN python -m pip install --upgrade pip pipenv && \
-    pipenv install --system --dev
+RUN pipenv install --system --dev --deploy && python -m pip check
 
 # Configuring insecure Docker registry
 COPY config/insecure-registry.json /etc/docker/daemon.json 
