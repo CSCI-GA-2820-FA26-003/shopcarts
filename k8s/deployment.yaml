@@ -1,0 +1,39 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shopcarts
+  labels:
+    app: shopcarts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shopcarts
+  template:
+    metadata:
+      labels:
+        app: shopcarts
+    spec:
+      containers:
+        - name: shopcarts
+          image: cluster-registry:5000/shopcarts:1.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: PORT
+              value: "8080"
+            - name: DATABASE_URI
+              valueFrom:
+                secretKeyRef:
+                  name: shopcarts-db-connection
+                  key: DATABASE_URI
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
