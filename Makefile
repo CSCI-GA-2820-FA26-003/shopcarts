@@ -1,10 +1,21 @@
-# These can be overidden with env vars.
+# Docker pushes through the published registry port.
+# Kubernetes pulls through the internal k3d registry address.
 REGISTRY ?= cluster-registry:5000
-IMAGE_NAME ?= petshop
+REGISTRY_PORT ?= 5000
+PUSH_REGISTRY ?= localhost:$(REGISTRY_PORT)
+
+IMAGE_NAME ?= shopcarts
 IMAGE_TAG ?= 1.0
 IMAGE ?= $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
+PUSH_IMAGE ?= $(PUSH_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
 PLATFORM ?= "linux/amd64,linux/arm64"
+
 CLUSTER ?= nyu-devops
+KUBE_CONTEXT ?= k3d-$(CLUSTER)
+NAMESPACE ?= default
+HTTP_PORT ?= 8080
+
+KUBECTL = kubectl --context $(KUBE_CONTEXT) --namespace $(NAMESPACE)
 
 .SILENT:
 
@@ -54,14 +65,16 @@ secret: ## Generate a secret hex key
 ##@ Kubernetes
 
 .PHONY: cluster
-cluster: ## Create a K3D Kubernetes cluster with load balancer and registry
-	$(info Creating Kubernetes cluster $(CLUSTER) with a registry and 1 worker nodes...)
-	k3d cluster create $(CLUSTER) --agents 1 --registry-create cluster-registry:5000 --registry-config ./config/registries.yaml --port '8080:80@loadbalancer'
+cluster: ## Create a local k3d cluster with a registry and HTTP ingress port
+	k3d cluster create $(CLUSTER) --agents 1 \
+		--registry-create cluster-registry:127.0.0.1:$(REGISTRY_PORT) \
+		--registry-config config/registries.yaml \
+		--port "$(HTTP_PORT):80@loadbalancer" \
+		--wait --timeout 180s
 
 .PHONY: cluster-rm
-cluster-rm: ## Remove a K3D Kubernetes cluster
-	$(info Removing Kubernetes cluster...)
-	k3d cluster delete nyu-devops
+cluster-rm: ## Remove the configured k3d cluster
+	k3d cluster delete $(CLUSTER)
 
 .PHONY: import
 import: ## Import the image into the local K3D cluster
@@ -69,9 +82,13 @@ import: ## Import the image into the local K3D cluster
 	k3d image import --cluster $(CLUSTER) $(IMAGE)
 
 .PHONY: deploy
-deploy: ## Deploy the service on local Kubernetes
-	$(info Deploying service locally...)
-	kubectl apply -R -f k8s/
+deploy: ## Deploy PostgreSQL, Flask, and Ingress
+	$(KUBECTL) get secret postgres-credentials shopcarts-db-connection -o name
+	$(KUBECTL) apply -f k8s/postgres/
+	$(KUBECTL) rollout status statefulset/postgres --timeout=180s
+	$(KUBECTL) apply -f k8s/deployment.yaml -f k8s/service.yaml
+	$(KUBECTL) rollout status deployment/shopcarts --timeout=180s
+	$(KUBECTL) apply -f k8s/ingress.yaml
 
 ############################################################
 # COMMANDS FOR BUILDING THE IMAGE
@@ -87,19 +104,21 @@ init:	## Creates the buildx instance
 	docker buildx inspect --bootstrap
 
 .PHONY: build
-build:	## Build the project container image for local platform
+build: ## Build the application image for the local platform
 	$(info Building $(IMAGE)...)
-	docker build --rm --pull --tag $(IMAGE) .
+	docker build --rm --pull --file Dockerfile --tag $(IMAGE) .
 
 .PHONY: push
-push:	## Push the image to the container registry
-	$(info Pushing $(IMAGE)...)
-	docker push $(IMAGE)
+push: ## Push the image through the published registry port
+	$(info Pushing $(PUSH_IMAGE)...)
+	docker tag $(IMAGE) $(PUSH_IMAGE)
+	docker push $(PUSH_IMAGE)
 
 .PHONY: buildx
-buildx:	## Build multi-platform image with buildx
-	$(info Building multi-platform image $(IMAGE) for $(PLATFORM)...)
-	docker buildx build --file Dockerfile --pull --platform=$(PLATFORM) --tag $(IMAGE) --push .
+buildx: ## Build and push a multi-platform image
+	$(info Building $(PUSH_IMAGE) for $(PLATFORM)...)
+	docker buildx build --file Dockerfile --pull \
+		--platform=$(PLATFORM) --tag $(PUSH_IMAGE) --push .
 
 .PHONY: remove
 remove:	## Stop and remove the buildx builder
