@@ -71,9 +71,20 @@ class TestShopcartService(TestCase):
     ######################################################################
 
     def test_index(self):
-        """It should call the home page"""
-        resp = self.client.get("/")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        """It should display the Shopcart administration page."""
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "text/html")
+
+        page = response.get_data(as_text=True)
+
+        self.assertIn("Shopcart Administration", page)
+        self.assertIn('id="create-shopcart-form"', page)
+        self.assertIn('id="customer-id"', page)
+        self.assertIn('id="create-shopcart-btn"', page)
+        self.assertIn('data-endpoint="/shopcarts"', page)
+        self.assertIn("/static/shopcarts.js", page)
 
     # ----------------------------------------------------------
     # TEST LIST SHOPCARTS

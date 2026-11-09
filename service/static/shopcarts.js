@@ -1,0 +1,101 @@
+"use strict";
+
+const form = document.getElementById("create-shopcart-form");
+const customerInput = document.getElementById("customer-id");
+const createButton = document.getElementById("create-shopcart-btn");
+const message = document.getElementById("creation-message");
+
+const resultPanel = document.getElementById("created-shopcart");
+const resultShopcartId = document.getElementById("result-shopcart-id");
+const resultCustomerId = document.getElementById("result-customer-id");
+const resultItemCount = document.getElementById("result-item-count");
+
+function showMessage(text, state) {
+  message.textContent = text;
+  message.dataset.state = state;
+}
+
+function clearResult() {
+  resultPanel.hidden = true;
+  resultShopcartId.textContent = "";
+  resultCustomerId.textContent = "";
+  resultItemCount.textContent = "";
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (createButton.disabled || !form.reportValidity()) {
+    return;
+  }
+
+  const customerId = Number(customerInput.value);
+
+  clearResult();
+  createButton.disabled = true;
+  showMessage("Creating shopcart...", "pending");
+
+  try {
+    const response = await fetch(form.dataset.endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        customer_id: customerId,
+        items: []
+      })
+    });
+
+    if (response.status === 400 || response.status === 409) {
+      showMessage(
+        "Unable to create shopcart. Check the customer ID; " +
+        "the customer may already have a shopcart.",
+        "error"
+      );
+      return;
+    }
+
+    if (response.status !== 201) {
+      showMessage(
+        "The service could not create the shopcart. Please try again.",
+        "error"
+      );
+      return;
+    }
+
+    const shopcart = await response.json();
+
+    if (
+      !Number.isInteger(shopcart.id) ||
+      shopcart.id <= 0 ||
+      shopcart.customer_id !== customerId ||
+      !Array.isArray(shopcart.items)
+    ) {
+      showMessage(
+        "The service returned an unexpected response. " +
+        "Check whether the shopcart was created before trying again.",
+        "error"
+      );
+      return;
+    }
+
+    resultShopcartId.textContent = String(shopcart.id);
+    resultCustomerId.textContent = String(shopcart.customer_id);
+    resultItemCount.textContent = String(shopcart.items.length);
+    resultPanel.hidden = false;
+
+    showMessage("Shopcart created successfully.", "success");
+  } catch {
+    showMessage(
+      "Unable to confirm creation. Check your connection and " +
+      "whether the shopcart was created before trying again.",
+      "error"
+    );
+  } finally {
+    createButton.disabled = false;
+  }
+});
+
+// Enable creation after the submit handler has been installed.
+createButton.disabled = false;

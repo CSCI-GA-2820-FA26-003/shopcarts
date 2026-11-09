@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shopcart Administration</title>
+    <script
+    src="{{ url_for('static', filename='shopcarts.js') }}"
+    defer
+  ></script>
+</head>
+<body>
+  <main>
+    <h1>Shopcart Administration</h1>
+
+    <section aria-labelledby="create-heading">
+      <h2 id="create-heading">Create a Shopcart</h2>
+
+      <p>
+        Enter a customer ID to create a shopcart.
+        The new shopcart will initially contain no items.
+      </p>
+
+      <form
+        id="create-shopcart-form"
+        data-endpoint="{{ url_for('create_shopcarts') }}"
+      >
+        <p>
+          <label for="customer-id">Customer ID</label>
+          <input
+            id="customer-id"
+            name="customer_id"
+            type="number"
+            min="1"
+            max="{{ max_customer_id }}"
+            step="1"
+            required
+          >
+        </p>
+
+        <button id="create-shopcart-btn" type="submit" disabled>
+          Create Shopcart
+        </button>
+      </form>
+
+      <p
+        id="creation-message"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-state="idle"
+      ></p>
+
+      <section
+        id="created-shopcart"
+        aria-labelledby="result-heading"
+        hidden
+      >
+        <h2 id="result-heading">Created Shopcart</h2>
+
+        <dl>
+          <dt>Shopcart ID</dt>
+          <dd id="result-shopcart-id"></dd>
+
+          <dt>Customer ID</dt>
+          <dd id="result-customer-id"></dd>
+
+          <dt>Item Count</dt>
+          <dd id="result-item-count"></dd>
+        </dl>
+      </section>
+    </section>
+  </main>
+</body>
+</html>
