@@ -21,7 +21,7 @@ This service implements a REST API that allows you to Create, Read, Update
 and Delete Shopcart and Item
 """
 
-from flask import jsonify, request, url_for, abort
+from flask import jsonify, request, url_for, abort, render_template
 from flask import current_app as app  # Import Flask application
 from service.models import Shopcart, Item
 from service.common import status  # HTTP Status Codes
@@ -35,13 +35,12 @@ MAX_CUSTOMER_ID = 2**31 - 1
 ######################################################################
 @app.route("/", methods=["GET"])
 def index():
-    """Root URL response"""
-    app.logger.info("Request for Root URL")
+    """Display the Shopcart administration page."""
+    app.logger.info("Request for Shopcart administration page")
     return (
-        jsonify(
-            name="shopcarts Demo REST API Service",
-            version=app.config.get("VERSION", "1.0"),
-            paths=url_for("list_shopcarts", _external=True),
+        render_template(
+            "index.html",
+            max_customer_id=MAX_CUSTOMER_ID,
         ),
         status.HTTP_200_OK,
     )
