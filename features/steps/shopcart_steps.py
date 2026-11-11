@@ -2,20 +2,19 @@
 
 from secrets import randbelow
 
-from behave.step_registry import registry
+from behave import given, when, then
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as conditions
 
-given = registry.make_decorator("given")
-when = registry.make_decorator("when")
-then = registry.make_decorator("then")
 
 FIELD_IDS = {
     "Customer ID": "customer-id",
+    "Shopcart ID": "read-shopcart-id",
 }
 
 BUTTON_IDS = {
     "Create Shopcart": "create-shopcart-btn",
+    "Retrieve": "read-shopcart-btn",
 }
 
 
@@ -157,3 +156,128 @@ def check_customer_validation_error(context):
 def check_button_enabled(context, button):
     """Check that the user can retry."""
     context.wait.until(conditions.element_to_be_clickable((By.ID, BUTTON_IDS[button])))
+
+
+def wait_for_retrieval(context, expected_state):
+    """Wait for retrieval to finish and check its displayed state."""
+
+    def request_finished(browser):
+        message = browser.find_element(By.ID, "read-message")
+        button = browser.find_element(By.ID, "read-shopcart-btn")
+        state = message.get_attribute("data-state")
+
+        if state in ("success", "error") and button.is_enabled():
+            return message
+
+        return False
+
+    message = context.wait.until(request_finished)
+    actual_state = message.get_attribute("data-state")
+
+    assert actual_state == expected_state, (
+        f"Expected {expected_state}, got {actual_state}: {message.text}"
+    )
+    return message
+
+
+@when("I enter the created shopcart ID for retrieval")
+def enter_created_shopcart_id(context):
+    """Copy the ID displayed by the creation form into the retrieval form."""
+    shopcart_id = context.browser.find_element(
+        By.ID, "result-shopcart-id"
+    ).text
+
+    assert shopcart_id.isdigit(), (
+        f"Expected a numeric shopcart ID, got {shopcart_id!r}"
+    )
+    context.read_shopcart_id = shopcart_id
+
+    element = context.wait.until(
+        conditions.element_to_be_clickable((By.ID, "read-shopcart-id"))
+    )
+    element.clear()
+    element.send_keys(shopcart_id)
+
+
+@then("I should see a successful retrieval")
+def check_successful_retrieval(context):
+    """Check the retrieval success message and visible result."""
+    message = wait_for_retrieval(context, "success")
+    assert message.text == "Shopcart retrieved successfully.", message.text
+
+    context.wait.until(
+        conditions.visibility_of_element_located(
+            (By.ID, "retrieved-shopcart")
+        )
+    )
+
+
+@then("the retrieved shopcart should match the created shopcart")
+def check_retrieved_shopcart(context):
+    """Verify that the retrieved cart has the expected ID and customer."""
+    shopcart_id = context.browser.find_element(
+        By.ID, "read-result-shopcart-id"
+    ).text
+    customer_id = context.browser.find_element(
+        By.ID, "read-result-customer-id"
+    ).text
+
+    assert shopcart_id == context.read_shopcart_id, (
+        f"Expected shopcart {context.read_shopcart_id}, got {shopcart_id}"
+    )
+    assert customer_id == str(context.customer_id), (
+        f"Expected customer {context.customer_id}, got {customer_id}"
+    )
+
+
+@then("the retrieved shopcart should contain {count:d} items")
+def check_retrieved_item_count(context, count):
+    """Check the retrieved cart's displayed item count."""
+    item_count = context.browser.find_element(
+        By.ID, "read-result-item-count"
+    ).text
+
+    assert item_count == str(count), (
+        f"Expected {count} items, got {item_count}"
+    )
+
+    if count == 0:
+        items = context.browser.find_element(
+            By.ID, "read-result-items"
+        ).text
+        assert items == "[]", f"Expected an empty item list, got {items}"
+
+
+@when("I enter a nonexistent shopcart ID for retrieval")
+def enter_nonexistent_shopcart_id(context):
+    """Enter an unused ID in the local test database."""
+    element = context.wait.until(
+        conditions.element_to_be_clickable((By.ID, "read-shopcart-id"))
+    )
+    element.clear()
+    element.send_keys("2147483647")
+
+
+@then("I should see a shopcart not found message")
+def check_shopcart_not_found(context):
+    """Check the message for a missing shopcart."""
+    message = wait_for_retrieval(context, "error")
+    assert message.text == "Shopcart not found.", message.text
+
+
+@then("the retrieved shopcart details should be hidden")
+def check_retrieved_details_hidden(context):
+    """Check that a failed retrieval clears previous results."""
+    panel = context.browser.find_element(By.ID, "retrieved-shopcart")
+    assert not panel.is_displayed(), "Previous shopcart details are still visible."
+
+    for field_id in (
+        "read-result-shopcart-id",
+        "read-result-customer-id",
+        "read-result-item-count",
+        "read-result-items",
+    ):
+        element = context.browser.find_element(By.ID, field_id)
+        assert element.get_attribute("textContent") == "", (
+            f"Previous content remains in {field_id}."
+        )
