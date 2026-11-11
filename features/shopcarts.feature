@@ -31,3 +31,12 @@ Feature: Create shopcarts through the administration page
     Then I should see a successful creation
     And the created shopcart should belong to the entered customer
     And the created shopcart should contain 0 items
+
+  Scenario: Delete a shopcart
+    When I enter a new test customer ID
+    And I press "Create Shopcart"
+    Then I should see a successful creation
+    When I enter the created shopcart ID for deletion
+    And I press "Delete Shopcart"
+    Then I should see a successful deletion
+    And the created shopcart should no longer be displayed
