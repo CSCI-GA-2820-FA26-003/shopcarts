@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Shopcart Administration</title>
-    <script
-    src="{{ url_for('static', filename='shopcarts.js') }}"
-    defer
-  ></script>
+  <script src="{{ url_for('static', filename='shopcarts.js') }}" defer></script>
 </head>
+
 <body>
   <main>
     <h1>Shopcart Administration</h1>
@@ -21,21 +20,11 @@
         The new shopcart will initially contain no items.
       </p>
 
-      <form
-        id="create-shopcart-form"
-        data-endpoint="{{ url_for('create_shopcarts') }}"
-      >
+      <form id="create-shopcart-form" data-endpoint="{{ url_for('create_shopcarts') }}">
         <p>
           <label for="customer-id">Customer ID</label>
-          <input
-            id="customer-id"
-            name="customer_id"
-            type="number"
-            min="1"
-            max="{{ max_customer_id }}"
-            step="1"
-            required
-          >
+          <input id="customer-id" name="customer_id" type="number" min="1" max="{{ max_customer_id }}" step="1"
+            required>
         </p>
 
         <button id="create-shopcart-btn" type="submit" disabled>
@@ -43,19 +32,9 @@
         </button>
       </form>
 
-      <p
-        id="creation-message"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        data-state="idle"
-      ></p>
+      <p id="creation-message" role="status" aria-live="polite" aria-atomic="true" data-state="idle"></p>
 
-      <section
-        id="created-shopcart"
-        aria-labelledby="result-heading"
-        hidden
-      >
+      <section id="created-shopcart" aria-labelledby="result-heading" hidden>
         <h2 id="result-heading">Created Shopcart</h2>
 
         <dl>
@@ -69,6 +48,27 @@
           <dd id="result-item-count"></dd>
         </dl>
       </section>
+    </section>
+
+    <section aria-labelledby="delete-heading">
+      <h2 id="delete-heading">Delete a Shopcart</h2>
+
+      <p>
+        Enter a shopcart ID to delete the shopcart.
+      </p>
+
+      <form id="delete-shopcart-form" data-endpoint="{{ url_for('list_shopcarts') }}">
+        <p>
+          <label for="delete-shopcart-id">Shopcart ID</label>
+          <input id="delete-shopcart-id" name="shopcart_id" type="number" min="1" step="1" required>
+        </p>
+
+        <button id="delete-shopcart-btn" type="submit" disabled>
+          Delete Shopcart
+        </button>
+      </form>
+
+      <p id="deletion-message" role="status" aria-live="polite" aria-atomic="true" data-state="idle"></p>
     </section>
     <section aria-labelledby="read-heading">
       <h2 id="read-heading">Read a Shopcart</h2>
@@ -127,4 +127,5 @@
     </section>
   </main>
 </body>
+
 </html>

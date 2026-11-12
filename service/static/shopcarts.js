@@ -10,9 +10,19 @@ const resultShopcartId = document.getElementById("result-shopcart-id");
 const resultCustomerId = document.getElementById("result-customer-id");
 const resultItemCount = document.getElementById("result-item-count");
 
+const deleteForm = document.getElementById("delete-shopcart-form");
+const deleteInput = document.getElementById("delete-shopcart-id");
+const deleteButton = document.getElementById("delete-shopcart-btn");
+const deletionMessage = document.getElementById("deletion-message");
+
 function showMessage(text, state) {
   message.textContent = text;
   message.dataset.state = state;
+}
+
+function showDeletionMessage(text, state) {
+  deletionMessage.textContent = text;
+  deletionMessage.dataset.state = state;
 }
 
 function clearResult() {
@@ -97,8 +107,53 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
-// Enable creation after the submit handler has been installed.
+deleteForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (deleteButton.disabled || !deleteForm.reportValidity()) {
+    return;
+  }
+
+  const shopcartId = Number(deleteInput.value);
+
+  deleteButton.disabled = true;
+  showDeletionMessage("Deleting shopcart...", "pending");
+
+  try {
+    const response = await fetch(
+      `${deleteForm.dataset.endpoint}/${shopcartId}`,
+      {
+        method: "DELETE"
+      }
+    );
+
+    if (response.status !== 204) {
+      showDeletionMessage(
+        "The service could not delete the shopcart. Please try again.",
+        "error"
+      );
+      return;
+    }
+
+    if (resultShopcartId.textContent === String(shopcartId)) {
+      clearResult();
+    }
+
+    deleteInput.value = "";
+    showDeletionMessage("Shopcart deleted successfully.", "success");
+  } catch {
+    showDeletionMessage(
+      "Unable to delete the shopcart. Check your connection and try again.",
+      "error"
+    );
+  } finally {
+    deleteButton.disabled = false;
+  }
+});
+
+// Enable buttons after their submit handlers have been installed.
 createButton.disabled = false;
+deleteButton.disabled = false;
 
 const readForm = document.getElementById("read-shopcart-form");
 const readInput = document.getElementById("read-shopcart-id");

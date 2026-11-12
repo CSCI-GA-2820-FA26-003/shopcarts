@@ -2,19 +2,20 @@
 
 from secrets import randbelow
 
-from behave import given, when, then
+from behave import given, then, when
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as conditions
 
-
 FIELD_IDS = {
     "Customer ID": "customer-id",
-    "Shopcart ID": "read-shopcart-id",
+    "Shopcart ID": "delete-shopcart-id",
+    "Read Shopcart ID": "read-shopcart-id",
 }
 
 BUTTON_IDS = {
     "Create Shopcart": "create-shopcart-btn",
     "Retrieve": "read-shopcart-btn",
+    "Delete Shopcart": "delete-shopcart-btn",
 }
 
 
@@ -156,6 +157,50 @@ def check_customer_validation_error(context):
 def check_button_enabled(context, button):
     """Check that the user can retry."""
     context.wait.until(conditions.element_to_be_clickable((By.ID, BUTTON_IDS[button])))
+
+
+@when("I enter the created shopcart ID for deletion")
+def enter_created_shopcart_id_for_deletion(context):
+    """Enter the created shopcart ID in the delete form."""
+    shopcart_id = context.browser.find_element(By.ID, "result-shopcart-id").text
+
+    assert shopcart_id.isdigit(), f"Expected a numeric shopcart ID, got {shopcart_id!r}"
+
+    context.shopcart_id = int(shopcart_id)
+
+    element = context.wait.until(
+        conditions.element_to_be_clickable((By.ID, FIELD_IDS["Shopcart ID"]))
+    )
+    element.clear()
+    element.send_keys(shopcart_id)
+
+
+@then("I should see a successful deletion")
+def check_successful_deletion(context):
+    """Check that the delete request completed successfully."""
+
+    def deletion_finished(browser):
+        message = browser.find_element(By.ID, "deletion-message")
+        button = browser.find_element(By.ID, "delete-shopcart-btn")
+        state = message.get_attribute("data-state")
+
+        if state in ("success", "error") and button.is_enabled():
+            return message
+
+        return False
+
+    message = context.wait.until(deletion_finished)
+
+    assert message.get_attribute("data-state") == "success", message.text
+    assert message.text == "Shopcart deleted successfully.", message.text
+
+
+@then("the created shopcart should no longer be displayed")
+def check_deleted_shopcart_not_displayed(context):
+    """Check that the deleted shopcart result is hidden."""
+    context.wait.until(
+        conditions.invisibility_of_element_located((By.ID, "created-shopcart"))
+    )
 
 
 def wait_for_retrieval(context, expected_state):

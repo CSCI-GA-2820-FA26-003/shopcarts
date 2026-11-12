@@ -7,7 +7,7 @@ Feature: Read shopcarts through the administration page
     Given I am on the administration page
 
   Scenario: Display the retrieval form
-    Then I should see the "Shopcart ID" field
+    Then I should see the "Read Shopcart ID" field
     And I should see the "Retrieve" button
 
   Scenario: Retrieve an existing shopcart
