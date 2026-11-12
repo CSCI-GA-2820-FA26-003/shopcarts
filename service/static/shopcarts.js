@@ -154,3 +154,97 @@ deleteForm.addEventListener("submit", async (event) => {
 // Enable buttons after their submit handlers have been installed.
 createButton.disabled = false;
 deleteButton.disabled = false;
+
+const readForm = document.getElementById("read-shopcart-form");
+const readInput = document.getElementById("read-shopcart-id");
+const readButton = document.getElementById("read-shopcart-btn");
+const readMessage = document.getElementById("read-message");
+
+const readPanel = document.getElementById("retrieved-shopcart");
+const readResultId = document.getElementById("read-result-shopcart-id");
+const readResultCustomer = document.getElementById("read-result-customer-id");
+const readResultCount = document.getElementById("read-result-item-count");
+const readResultItems = document.getElementById("read-result-items");
+
+function showReadMessage(text, state) {
+  readMessage.textContent = text;
+  readMessage.dataset.state = state;
+}
+
+function clearReadResult() {
+  readPanel.hidden = true;
+  readResultId.textContent = "";
+  readResultCustomer.textContent = "";
+  readResultCount.textContent = "";
+  readResultItems.textContent = "";
+}
+
+readForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (readButton.disabled || !readForm.reportValidity()) {
+    return;
+  }
+
+  const shopcartId = Number(readInput.value);
+  const endpoint = readForm.dataset.endpointTemplate.replace(
+    /\/0$/,
+    `/${shopcartId}`
+  );
+
+  clearReadResult();
+  readButton.disabled = true;
+  showReadMessage("Retrieving shopcart...", "pending");
+
+  try {
+    const response = await fetch(endpoint, {
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+
+    if (response.status === 404) {
+      showReadMessage("Shopcart not found.", "error");
+      return;
+    }
+
+    if (response.status !== 200) {
+      showReadMessage(
+        "The service could not retrieve the shopcart. Please try again.",
+        "error"
+      );
+      return;
+    }
+
+    const shopcart = await response.json();
+
+    if (
+      shopcart.id !== shopcartId ||
+      !Number.isInteger(shopcart.customer_id) ||
+      !Array.isArray(shopcart.items)
+    ) {
+      showReadMessage(
+        "The service returned an unexpected response. Please try again.",
+        "error"
+      );
+      return;
+    }
+
+    readResultId.textContent = String(shopcart.id);
+    readResultCustomer.textContent = String(shopcart.customer_id);
+    readResultCount.textContent = String(shopcart.items.length);
+    readResultItems.textContent = JSON.stringify(shopcart.items, null, 2);
+    readPanel.hidden = false;
+
+    showReadMessage("Shopcart retrieved successfully.", "success");
+  } catch {
+    showReadMessage(
+      "Unable to retrieve the shopcart. Check your connection and try again.",
+      "error"
+    );
+  } finally {
+    readButton.disabled = false;
+  }
+});
+
+readButton.disabled = false;

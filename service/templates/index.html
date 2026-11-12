@@ -70,6 +70,61 @@
 
       <p id="deletion-message" role="status" aria-live="polite" aria-atomic="true" data-state="idle"></p>
     </section>
+    <section aria-labelledby="read-heading">
+      <h2 id="read-heading">Read a Shopcart</h2>
+
+      <form
+        id="read-shopcart-form"
+        data-endpoint-template="{{ url_for('get_shopcarts', shopcart_id=0) }}"
+      >
+        <p>
+          <label for="read-shopcart-id">Shopcart ID</label>
+          <input
+            id="read-shopcart-id"
+            name="shopcart_id"
+            type="number"
+            min="1"
+            max="2147483647"
+            step="1"
+            required
+          >
+        </p>
+
+        <button id="read-shopcart-btn" type="submit" disabled>
+          Retrieve
+        </button>
+      </form>
+
+      <p
+        id="read-message"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-state="idle"
+      ></p>
+
+      <section
+        id="retrieved-shopcart"
+        aria-labelledby="read-result-heading"
+        hidden
+      >
+        <h3 id="read-result-heading">Retrieved Shopcart</h3>
+
+        <dl>
+          <dt>Shopcart ID</dt>
+          <dd id="read-result-shopcart-id"></dd>
+
+          <dt>Customer ID</dt>
+          <dd id="read-result-customer-id"></dd>
+
+          <dt>Item Count</dt>
+          <dd id="read-result-item-count"></dd>
+        </dl>
+
+        <h4>Items</h4>
+        <pre id="read-result-items"></pre>
+      </section>
+    </section>
   </main>
 </body>
 
