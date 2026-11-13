@@ -16,6 +16,7 @@ BUTTON_IDS = {
     "Create Shopcart": "create-shopcart-btn",
     "Retrieve": "read-shopcart-btn",
     "Delete Shopcart": "delete-shopcart-btn",
+    "Search Shopcarts": "query-shopcart-btn",
 }
 
 
@@ -219,22 +220,18 @@ def wait_for_retrieval(context, expected_state):
     message = context.wait.until(request_finished)
     actual_state = message.get_attribute("data-state")
 
-    assert actual_state == expected_state, (
-        f"Expected {expected_state}, got {actual_state}: {message.text}"
-    )
+    assert (
+        actual_state == expected_state
+    ), f"Expected {expected_state}, got {actual_state}: {message.text}"
     return message
 
 
 @when("I enter the created shopcart ID for retrieval")
 def enter_created_shopcart_id(context):
     """Copy the ID displayed by the creation form into the retrieval form."""
-    shopcart_id = context.browser.find_element(
-        By.ID, "result-shopcart-id"
-    ).text
+    shopcart_id = context.browser.find_element(By.ID, "result-shopcart-id").text
 
-    assert shopcart_id.isdigit(), (
-        f"Expected a numeric shopcart ID, got {shopcart_id!r}"
-    )
+    assert shopcart_id.isdigit(), f"Expected a numeric shopcart ID, got {shopcart_id!r}"
     context.read_shopcart_id = shopcart_id
 
     element = context.wait.until(
@@ -251,45 +248,33 @@ def check_successful_retrieval(context):
     assert message.text == "Shopcart retrieved successfully.", message.text
 
     context.wait.until(
-        conditions.visibility_of_element_located(
-            (By.ID, "retrieved-shopcart")
-        )
+        conditions.visibility_of_element_located((By.ID, "retrieved-shopcart"))
     )
 
 
 @then("the retrieved shopcart should match the created shopcart")
 def check_retrieved_shopcart(context):
     """Verify that the retrieved cart has the expected ID and customer."""
-    shopcart_id = context.browser.find_element(
-        By.ID, "read-result-shopcart-id"
-    ).text
-    customer_id = context.browser.find_element(
-        By.ID, "read-result-customer-id"
-    ).text
+    shopcart_id = context.browser.find_element(By.ID, "read-result-shopcart-id").text
+    customer_id = context.browser.find_element(By.ID, "read-result-customer-id").text
 
-    assert shopcart_id == context.read_shopcart_id, (
-        f"Expected shopcart {context.read_shopcart_id}, got {shopcart_id}"
-    )
-    assert customer_id == str(context.customer_id), (
-        f"Expected customer {context.customer_id}, got {customer_id}"
-    )
+    assert (
+        shopcart_id == context.read_shopcart_id
+    ), f"Expected shopcart {context.read_shopcart_id}, got {shopcart_id}"
+    assert customer_id == str(
+        context.customer_id
+    ), f"Expected customer {context.customer_id}, got {customer_id}"
 
 
 @then("the retrieved shopcart should contain {count:d} items")
 def check_retrieved_item_count(context, count):
     """Check the retrieved cart's displayed item count."""
-    item_count = context.browser.find_element(
-        By.ID, "read-result-item-count"
-    ).text
+    item_count = context.browser.find_element(By.ID, "read-result-item-count").text
 
-    assert item_count == str(count), (
-        f"Expected {count} items, got {item_count}"
-    )
+    assert item_count == str(count), f"Expected {count} items, got {item_count}"
 
     if count == 0:
-        items = context.browser.find_element(
-            By.ID, "read-result-items"
-        ).text
+        items = context.browser.find_element(By.ID, "read-result-items").text
         assert items == "[]", f"Expected an empty item list, got {items}"
 
 
@@ -323,6 +308,96 @@ def check_retrieved_details_hidden(context):
         "read-result-items",
     ):
         element = context.browser.find_element(By.ID, field_id)
-        assert element.get_attribute("textContent") == "", (
-            f"Previous content remains in {field_id}."
-        )
+        assert (
+            element.get_attribute("textContent") == ""
+        ), f"Previous content remains in {field_id}."
+
+
+def wait_for_query(context, expected_state):
+    """Wait for the query request to finish."""
+
+    def request_finished(browser):
+        message = browser.find_element(By.ID, "query-message")
+        button = browser.find_element(By.ID, "query-shopcart-btn")
+        state = message.get_attribute("data-state")
+
+        if state in ("success", "error") and button.is_enabled():
+            return message
+
+        return False
+
+    message = context.wait.until(request_finished)
+    actual_state = message.get_attribute("data-state")
+
+    assert (
+        actual_state == expected_state
+    ), f"Expected {expected_state}, got {actual_state}: {message.text}"
+    return message
+
+
+@when("I enter the created customer ID for query")
+def enter_created_customer_id_for_query(context):
+    """Enter the customer ID used to create the shopcart."""
+    element = context.wait.until(
+        conditions.element_to_be_clickable((By.ID, "query-customer-id"))
+    )
+    element.clear()
+    element.send_keys(str(context.customer_id))
+
+
+@then("I should see a successful query")
+def check_successful_query(context):
+    """Check that the query completed successfully."""
+    message = wait_for_query(context, "success")
+    assert message.text == "Shopcarts found successfully.", message.text
+
+    context.wait.until(
+        conditions.visibility_of_element_located((By.ID, "query-results"))
+    )
+
+
+@then("the query result should match the created shopcart")
+def check_query_result(context):
+    """Check that only the created shopcart is displayed."""
+    rows = context.browser.find_elements(By.CSS_SELECTOR, "#query-results-body tr")
+
+    assert len(rows) == 1, f"Expected 1 result, got {len(rows)}"
+
+    cells = rows[0].find_elements(By.TAG_NAME, "td")
+    expected_shopcart_id = context.browser.find_element(
+        By.ID, "result-shopcart-id"
+    ).text
+
+    assert len(cells) == 3, f"Expected 3 result fields, got {len(cells)}"
+    assert cells[0].text == expected_shopcart_id
+    assert cells[1].text == str(context.customer_id)
+    assert cells[2].text == "0"
+
+
+@when("I enter a nonexistent customer ID for query")
+def enter_nonexistent_customer_id_for_query(context):
+    """Enter a customer ID that is not created by the BDD scenarios."""
+    context.query_customer_id = 2147483647
+
+    element = context.wait.until(
+        conditions.element_to_be_clickable((By.ID, "query-customer-id"))
+    )
+    element.clear()
+    element.send_keys(str(context.query_customer_id))
+
+
+@then("I should see a no shopcarts found message")
+def check_no_shopcarts_found(context):
+    """Check the empty query result message."""
+    message = wait_for_query(context, "success")
+    assert message.text == "No shopcarts found.", message.text
+
+
+@then("the query results should be hidden")
+def check_query_results_hidden(context):
+    """Check that no stale query results are displayed."""
+    panel = context.browser.find_element(By.ID, "query-results")
+    rows = context.browser.find_elements(By.CSS_SELECTOR, "#query-results-body tr")
+
+    assert not panel.is_displayed(), "The query results panel is visible."
+    assert len(rows) == 0, f"Expected no result rows, got {len(rows)}"

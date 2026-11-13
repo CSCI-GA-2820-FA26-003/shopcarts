@@ -73,21 +73,10 @@
     <section aria-labelledby="read-heading">
       <h2 id="read-heading">Read a Shopcart</h2>
 
-      <form
-        id="read-shopcart-form"
-        data-endpoint-template="{{ url_for('get_shopcarts', shopcart_id=0) }}"
-      >
+      <form id="read-shopcart-form" data-endpoint-template="{{ url_for('get_shopcarts', shopcart_id=0) }}">
         <p>
           <label for="read-shopcart-id">Shopcart ID</label>
-          <input
-            id="read-shopcart-id"
-            name="shopcart_id"
-            type="number"
-            min="1"
-            max="2147483647"
-            step="1"
-            required
-          >
+          <input id="read-shopcart-id" name="shopcart_id" type="number" min="1" max="2147483647" step="1" required>
         </p>
 
         <button id="read-shopcart-btn" type="submit" disabled>
@@ -95,19 +84,9 @@
         </button>
       </form>
 
-      <p
-        id="read-message"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        data-state="idle"
-      ></p>
+      <p id="read-message" role="status" aria-live="polite" aria-atomic="true" data-state="idle"></p>
 
-      <section
-        id="retrieved-shopcart"
-        aria-labelledby="read-result-heading"
-        hidden
-      >
+      <section id="retrieved-shopcart" aria-labelledby="read-result-heading" hidden>
         <h3 id="read-result-heading">Retrieved Shopcart</h3>
 
         <dl>
@@ -123,6 +102,42 @@
 
         <h4>Items</h4>
         <pre id="read-result-items"></pre>
+      </section>
+    </section>
+    <section aria-labelledby="query-heading">
+      <h2 id="query-heading">Query Shopcarts by Customer ID</h2>
+
+      <p>
+        Enter a customer ID to find the associated shopcart.
+      </p>
+
+      <form id="query-shopcart-form" data-endpoint="{{ url_for('list_shopcarts') }}">
+        <p>
+          <label for="query-customer-id">Customer ID</label>
+          <input id="query-customer-id" name="customer_id" type="number" min="1" max="{{ max_customer_id }}" step="1"
+            required>
+        </p>
+
+        <button id="query-shopcart-btn" type="submit" disabled>
+          Search Shopcarts
+        </button>
+      </form>
+
+      <p id="query-message" role="status" aria-live="polite" aria-atomic="true" data-state="idle"></p>
+
+      <section id="query-results" aria-labelledby="query-results-heading" hidden>
+        <h3 id="query-results-heading">Search Results</h3>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Shopcart ID</th>
+              <th>Customer ID</th>
+              <th>Item Count</th>
+            </tr>
+          </thead>
+          <tbody id="query-results-body"></tbody>
+        </table>
       </section>
     </section>
   </main>

@@ -248,3 +248,109 @@ readForm.addEventListener("submit", async (event) => {
 });
 
 readButton.disabled = false;
+
+const queryForm = document.getElementById("query-shopcart-form");
+const queryInput = document.getElementById("query-customer-id");
+const queryButton = document.getElementById("query-shopcart-btn");
+const queryMessage = document.getElementById("query-message");
+const queryResults = document.getElementById("query-results");
+const queryResultsBody = document.getElementById("query-results-body");
+
+function showQueryMessage(text, state) {
+  queryMessage.textContent = text;
+  queryMessage.dataset.state = state;
+}
+
+function clearQueryResults() {
+  queryResults.hidden = true;
+  queryResultsBody.replaceChildren();
+}
+
+function displayQueryResults(shopcarts) {
+  queryResultsBody.replaceChildren();
+
+  for (const shopcart of shopcarts) {
+    const row = document.createElement("tr");
+
+    const shopcartId = document.createElement("td");
+    shopcartId.textContent = String(shopcart.id);
+
+    const customerId = document.createElement("td");
+    customerId.textContent = String(shopcart.customer_id);
+
+    const itemCount = document.createElement("td");
+    itemCount.textContent = String(shopcart.items.length);
+
+    row.append(shopcartId, customerId, itemCount);
+    queryResultsBody.appendChild(row);
+  }
+
+  queryResults.hidden = false;
+}
+
+queryForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (queryButton.disabled || !queryForm.reportValidity()) {
+    return;
+  }
+
+  const customerId = Number(queryInput.value);
+  const endpoint = new URL(queryForm.dataset.endpoint, window.location.origin);
+  endpoint.searchParams.set("customer_id", String(customerId));
+
+  clearQueryResults();
+  queryButton.disabled = true;
+  showQueryMessage("Searching for shopcarts...", "pending");
+
+  try {
+    const response = await fetch(endpoint, {
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+
+    if (response.status !== 200) {
+      showQueryMessage(
+        "The service could not search for shopcarts. Please try again.",
+        "error"
+      );
+      return;
+    }
+
+    const shopcarts = await response.json();
+
+    if (
+      !Array.isArray(shopcarts) ||
+      shopcarts.some(
+        (shopcart) =>
+          !Number.isInteger(shopcart.id) ||
+          shopcart.customer_id !== customerId ||
+          !Array.isArray(shopcart.items)
+      )
+    ) {
+      showQueryMessage(
+        "The service returned an unexpected response. Please try again.",
+        "error"
+      );
+      return;
+    }
+
+    if (shopcarts.length === 0) {
+      showQueryMessage("No shopcarts found.", "success");
+      return;
+    }
+
+    displayQueryResults(shopcarts);
+    showQueryMessage("Shopcarts found successfully.", "success");
+  } catch {
+    showQueryMessage(
+      "Unable to search for shopcarts. Check your connection and try again.",
+      "error"
+    );
+  } finally {
+    queryButton.disabled = false;
+  }
+});
+
+queryButton.disabled = false;
