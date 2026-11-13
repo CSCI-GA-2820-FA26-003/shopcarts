@@ -17,6 +17,7 @@ BUTTON_IDS = {
     "Retrieve": "read-shopcart-btn",
     "Delete Shopcart": "delete-shopcart-btn",
     "Search Shopcarts": "query-shopcart-btn",
+    "Update": "update-shopcart-btn",
 }
 
 
@@ -401,3 +402,99 @@ def check_query_results_hidden(context):
 
     assert not panel.is_displayed(), "The query results panel is visible."
     assert len(rows) == 0, f"Expected no result rows, got {len(rows)}"
+
+
+def wait_for_update(context, expected_state):
+    """Wait for an update request to finish."""
+
+    def request_finished(browser):
+        message = browser.find_element(By.ID, "update-message")
+        button = browser.find_element(By.ID, "update-shopcart-btn")
+        state = message.get_attribute("data-state")
+
+        if state == "error":
+            return message
+
+        if state == "success" and button.is_enabled():
+            return message
+
+        return False
+
+    message = context.wait.until(request_finished)
+    actual_state = message.get_attribute("data-state")
+
+    assert actual_state == expected_state, (
+        f"Expected {expected_state}, got {actual_state}: {message.text}"
+    )
+    return message
+
+
+@then("the update form should show the current customer ID")
+def check_update_customer_input(context):
+    """Check that retrieval fills the editable customer ID."""
+    element = context.wait.until(
+        conditions.element_to_be_clickable((By.ID, "update-customer-id"))
+    )
+    assert element.get_attribute("value") == str(context.customer_id)
+
+
+@when("I enter a new customer ID for update")
+def enter_new_customer_id_for_update(context):
+    """Enter a different customer ID through the update form."""
+    customer_id = 1_000_000_000 + randbelow(1_000_000_000)
+
+    while customer_id == context.customer_id:
+        customer_id = 1_000_000_000 + randbelow(1_000_000_000)
+
+    context.updated_customer_id = customer_id
+
+    element = context.wait.until(
+        conditions.element_to_be_clickable((By.ID, "update-customer-id"))
+    )
+    element.clear()
+    element.send_keys(str(customer_id))
+
+
+@then("I should see a successful update")
+def check_successful_update(context):
+    """Check the update confirmation."""
+    message = wait_for_update(context, "success")
+    assert message.text == "Shopcart updated successfully.", message.text
+
+
+@then("the displayed shopcart should have the updated customer ID")
+def check_updated_customer_id(context):
+    """Check that the same cart displays the updated customer ID."""
+    context.wait.until(
+        conditions.visibility_of_element_located(
+            (By.ID, "retrieved-shopcart")
+        )
+    )
+
+    shopcart_id = context.browser.find_element(
+        By.ID, "read-result-shopcart-id"
+    ).text
+    customer_id = context.browser.find_element(
+        By.ID, "read-result-customer-id"
+    ).text
+    update_input = context.browser.find_element(By.ID, "update-customer-id")
+
+    assert shopcart_id == context.read_shopcart_id, (
+        f"Expected shopcart {context.read_shopcart_id}, got {shopcart_id}"
+    )
+    assert customer_id == str(context.updated_customer_id), (
+        f"Expected customer {context.updated_customer_id}, got {customer_id}"
+    )
+    assert update_input.get_attribute("value") == str(
+        context.updated_customer_id
+    )
+
+
+@then("I should see an update shopcart not found message")
+def check_update_shopcart_not_found(context):
+    """Check the rejection when a retrieved cart has been deleted."""
+    message = wait_for_update(context, "error")
+    expected = (
+        "Shopcart not found. Retrieve an existing shopcart before updating."
+    )
+    assert message.text == expected, message.text
