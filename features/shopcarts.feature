@@ -40,3 +40,18 @@ Feature: Create shopcarts through the administration page
     And I press "Delete Shopcart"
     Then I should see a successful deletion
     And the created shopcart should no longer be displayed
+
+  Scenario: Query a shopcart by customer ID
+    When I enter a new test customer ID
+    And I press "Create Shopcart"
+    Then I should see a successful creation
+    When I enter the created customer ID for query
+    And I press "Search Shopcarts"
+    Then I should see a successful query
+    And the query result should match the created shopcart
+
+  Scenario: Query with no matching customer
+    When I enter a nonexistent customer ID for query
+    And I press "Search Shopcarts"
+    Then I should see a no shopcarts found message
+    And the query results should be hidden
