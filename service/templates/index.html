@@ -87,6 +87,15 @@
 
       <p id="read-message" role="status" aria-live="polite" aria-atomic="true" data-state="idle"></p>
 
+
+      <p
+        id="update-message"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-state="idle"
+      ></p>
+
       <section id="retrieved-shopcart" aria-labelledby="read-result-heading" hidden>
         <h3 id="read-result-heading">Retrieved Shopcart</h3>
 
@@ -103,6 +112,31 @@
 
         <h4>Items</h4>
         <pre id="read-result-items"></pre>
+
+        <form
+          id="update-shopcart-form"
+          data-endpoint-template="{{ url_for('update_shopcart', shopcart_id=0) }}"
+        >
+          <h4>Update Shopcart</h4>
+
+          <p>
+            <label for="update-customer-id">New Customer ID</label>
+            <input
+              id="update-customer-id"
+              name="customer_id"
+              type="number"
+              min="1"
+              max="{{ max_customer_id }}"
+              step="1"
+              required
+            >
+          </p>
+
+          <button id="update-shopcart-btn" type="submit" disabled>
+            Update
+          </button>
+        </form>
+
       </section>
     </section>
     <section aria-labelledby="query-heading">

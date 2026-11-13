@@ -177,6 +177,9 @@ function clearReadResult() {
   readResultCustomer.textContent = "";
   readResultCount.textContent = "";
   readResultItems.textContent = "";
+  updateInput.value = "";
+  updateButton.disabled = true;
+  showUpdateMessage("", "idle");
 }
 
 readForm.addEventListener("submit", async (event) => {
@@ -235,6 +238,8 @@ readForm.addEventListener("submit", async (event) => {
     readResultCount.textContent = String(shopcart.items.length);
     readResultItems.textContent = JSON.stringify(shopcart.items, null, 2);
     readPanel.hidden = false;
+    updateInput.value = String(shopcart.customer_id);
+    updateButton.disabled = false;
 
     showReadMessage("Shopcart retrieved successfully.", "success");
   } catch {
@@ -354,3 +359,106 @@ queryForm.addEventListener("submit", async (event) => {
 });
 
 queryButton.disabled = false;
+
+const updateForm = document.getElementById("update-shopcart-form");
+const updateInput = document.getElementById("update-customer-id");
+const updateButton = document.getElementById("update-shopcart-btn");
+const updateMessage = document.getElementById("update-message");
+
+function showUpdateMessage(text, state) {
+  updateMessage.textContent = text;
+  updateMessage.dataset.state = state;
+}
+
+updateForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (
+    updateButton.disabled ||
+    readPanel.hidden ||
+    !updateForm.reportValidity()
+  ) {
+    return;
+  }
+
+  const shopcartId = Number(readResultId.textContent);
+  const customerId = Number(updateInput.value);
+  const endpoint = updateForm.dataset.endpointTemplate.replace(
+    /\/0$/,
+    `/${shopcartId}`
+  );
+
+  updateButton.disabled = true;
+  readButton.disabled = true;
+  updateInput.disabled = true;
+  showUpdateMessage("Updating shopcart...", "pending");
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        customer_id: customerId
+      })
+    });
+
+    if (response.status === 404) {
+      clearReadResult();
+      showUpdateMessage(
+        "Shopcart not found. Retrieve an existing shopcart before updating.",
+        "error"
+      );
+      return;
+    }
+
+    if (response.status === 400 || response.status === 409) {
+      showUpdateMessage(
+        "Unable to update shopcart. Check the customer ID; " +
+        "the customer may already have a shopcart.",
+        "error"
+      );
+      return;
+    }
+
+    if (response.status !== 200) {
+      showUpdateMessage(
+        "The service could not update the shopcart. Retrieve it again to check its current details.",
+        "error"
+      );
+      return;
+    }
+
+    const shopcart = await response.json();
+
+    if (
+      shopcart.id !== shopcartId ||
+      shopcart.customer_id !== customerId ||
+      !Array.isArray(shopcart.items)
+    ) {
+      showUpdateMessage(
+        "Unable to confirm the update. Retrieve the shopcart again to check its current details.",
+        "error"
+      );
+      return;
+    }
+
+    readResultCustomer.textContent = String(shopcart.customer_id);
+    readResultCount.textContent = String(shopcart.items.length);
+    readResultItems.textContent = JSON.stringify(shopcart.items, null, 2);
+    updateInput.value = String(shopcart.customer_id);
+
+    showUpdateMessage("Shopcart updated successfully.", "success");
+  } catch {
+    showUpdateMessage(
+      "Unable to confirm the update. Check your connection and retrieve the shopcart again.",
+      "error"
+    );
+  } finally {
+    updateInput.disabled = false;
+    readButton.disabled = false;
+    updateButton.disabled = readPanel.hidden;
+  }
+});
