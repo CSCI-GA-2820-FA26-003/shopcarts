@@ -11,6 +11,7 @@ FIELD_IDS = {
     "Customer ID": "customer-id",
     "Shopcart ID": "delete-shopcart-id",
     "Read Shopcart ID": "read-shopcart-id",
+    "Checkout Shopcart ID": "checkout-shopcart-id",
 }
 
 BUTTON_IDS = {
@@ -512,11 +513,10 @@ def wait_for_checkout(context, expected_state):
 
     def request_finished(browser):
         message = browser.find_element(By.ID, "checkout-message")
+        button = browser.find_element(By.ID, "checkout-shopcart-btn")
         state = message.get_attribute("data-state")
 
-        if state in ("success", "error") and browser.find_element(
-            By.ID, "read-shopcart-btn"
-        ).is_enabled():
+        if state in ("success", "error") and button.is_enabled():
             return message
 
         return False
@@ -528,6 +528,30 @@ def wait_for_checkout(context, expected_state):
         f"Expected {expected_state}, got {actual_state}: {message.text}"
     )
     return message
+
+
+def enter_checkout_shopcart_id(context, shopcart_id):
+    """Type a shopcart ID into the checkout form."""
+    element = context.wait.until(
+        conditions.element_to_be_clickable((By.ID, FIELD_IDS["Checkout Shopcart ID"]))
+    )
+    element.clear()
+    element.send_keys(shopcart_id)
+
+
+@when("I enter the created shopcart ID for checkout")
+def enter_created_shopcart_id_for_checkout(context):
+    """Copy the ID displayed by the creation form into the checkout form."""
+    shopcart_id = context.browser.find_element(By.ID, "result-shopcart-id").text
+    assert shopcart_id.isdigit(), f"Expected a numeric shopcart ID, got {shopcart_id!r}"
+    context.checkout_shopcart_id = shopcart_id
+    enter_checkout_shopcart_id(context, shopcart_id)
+
+
+@when("I enter a nonexistent shopcart ID for checkout")
+def enter_nonexistent_shopcart_id_for_checkout(context):
+    """Enter an ID that the BDD scenarios never create."""
+    enter_checkout_shopcart_id(context, "2147483647")
 
 
 @when("the created shopcart contains an item")
@@ -583,9 +607,55 @@ def check_empty_checkout_error(context):
 
 @then("I should see a checkout shopcart not found message")
 def check_checkout_not_found(context):
-    """Check the rejection when the retrieved shopcart has been deleted."""
+    """Check the message for a missing shopcart."""
     message = wait_for_checkout(context, "error")
-    expected = (
-        "Shopcart not found. Retrieve an existing shopcart before checking out."
+    assert message.text == "Shopcart not found.", message.text
+
+
+@then("the checked-out shopcart should match the created shopcart")
+def check_checked_out_shopcart(context):
+    """Check the checkout result shows the created shopcart."""
+    context.wait.until(
+        conditions.visibility_of_element_located((By.ID, "checked-out-shopcart"))
     )
-    assert message.text == expected, message.text
+    shopcart_id = context.browser.find_element(By.ID, "checkout-result-shopcart-id").text
+    customer_id = context.browser.find_element(By.ID, "checkout-result-customer-id").text
+
+    assert shopcart_id == context.checkout_shopcart_id, (
+        f"Expected shopcart {context.checkout_shopcart_id}, got {shopcart_id}"
+    )
+    assert customer_id == str(context.customer_id), (
+        f"Expected customer {context.customer_id}, got {customer_id}"
+    )
+
+
+@then("the checked-out shopcart should contain {count:d} items")
+def check_checked_out_item_count(context, count):
+    """Check the item count shown in the checkout result."""
+    item_count = context.browser.find_element(By.ID, "checkout-result-item-count").text
+    assert item_count == str(count), f"Expected {count} items, got {item_count}"
+
+
+@then('the checked-out shopcart should have status "{expected}"')
+def check_checked_out_status(context, expected):
+    """Check the status shown in the checkout result."""
+    actual = context.browser.find_element(By.ID, "checkout-result-status").text
+    assert actual == expected, f"Expected status {expected}, got {actual}"
+
+
+@then("the checked-out shopcart details should be hidden")
+def check_checked_out_details_hidden(context):
+    """Check that a failed checkout shows no result."""
+    panel = context.browser.find_element(By.ID, "checked-out-shopcart")
+    assert not panel.is_displayed(), "Checkout result details are visible."
+
+    for field_id in (
+        "checkout-result-shopcart-id",
+        "checkout-result-customer-id",
+        "checkout-result-item-count",
+        "checkout-result-status",
+    ):
+        element = context.browser.find_element(By.ID, field_id)
+        assert element.get_attribute("textContent") == "", (
+            f"Previous content remains in {field_id}."
+        )
