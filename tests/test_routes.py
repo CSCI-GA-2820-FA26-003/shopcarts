@@ -17,13 +17,20 @@
 TestShopcartService API Service Test Suite
 """
 
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, too-many-lines
 import os
 import logging
 from unittest import TestCase
 from wsgi import app
 from service.common import status
-from service.models import db, Shopcart, Item, DataValidationError
+from service.models import (
+    db,
+    Shopcart,
+    Item,
+    DataValidationError,
+    STATUS_ACTIVE,
+    STATUS_CHECKED_OUT,
+)
 from service.common import error_handlers
 from .factories import ShopcartFactory, ItemFactory
 
@@ -925,3 +932,134 @@ class TestShopcartService(TestCase):
         self.assertEqual(response.mimetype, "application/json")
 
         self.assertEqual(response.get_json(), {"status": "OK"})
+
+    # ----------------------------------------------------------
+    # TEST CHECKOUT
+    # ----------------------------------------------------------
+
+    def _create_checked_out_shopcart(self):
+        """Creates a Shopcart with one item and checks it out"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        item = ItemFactory(shopcart=shopcart)
+        item.create()
+        response = self.client.put(f"{BASE_URL}/{shopcart.id}/checkout")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return shopcart, item
+
+    def test_checkout_shopcart(self):
+        """It should checkout an active Shopcart that has items"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        item = ItemFactory(shopcart=shopcart)
+        item.create()
+
+        response = self.client.put(f"{BASE_URL}/{shopcart.id}/checkout")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(data["id"], shopcart.id)
+        self.assertEqual(data["status"], STATUS_CHECKED_OUT)
+        self.assertEqual(len(data["items"]), 1)
+
+        # The new status is saved to the database
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}")
+        self.assertEqual(response.get_json()["status"], STATUS_CHECKED_OUT)
+
+    def test_checkout_shopcart_not_found(self):
+        """It should return 404 when checking out a missing Shopcart"""
+        response = self.client.put(f"{BASE_URL}/0/checkout")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn("was not found", response.get_json()["message"])
+
+    def test_checkout_empty_shopcart(self):
+        """It should return 409 and stay active when the Shopcart is empty"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        response = self.client.put(f"{BASE_URL}/{shopcart.id}/checkout")
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        data = response.get_json()
+        self.assertEqual(data["error"], "Conflict")
+        self.assertIn("no items", data["message"])
+
+        response = self.client.get(f"{BASE_URL}/{shopcart.id}")
+        self.assertEqual(response.get_json()["status"], STATUS_ACTIVE)
+
+    def test_checkout_already_checked_out(self):
+        """It should return 200 and change nothing on a repeat checkout"""
+        shopcart, _ = self._create_checked_out_shopcart()
+        before = self.client.get(f"{BASE_URL}/{shopcart.id}").get_json()
+
+        response = self.client.put(f"{BASE_URL}/{shopcart.id}/checkout")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get_json(), before)
+
+    def test_new_shopcart_is_active(self):
+        """It should create Shopcarts with an active status"""
+        response = self.client.post(BASE_URL, json={"customer_id": 1})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.get_json()["status"], STATUS_ACTIVE)
+
+    def test_create_shopcart_ignores_status(self):
+        """It should not let a client create a checked-out Shopcart"""
+        response = self.client.post(
+            BASE_URL, json={"customer_id": 1, "status": STATUS_CHECKED_OUT}
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.get_json()["status"], STATUS_ACTIVE)
+
+    def test_add_item_to_checked_out_shopcart(self):
+        """It should not add items to a checked-out Shopcart"""
+        shopcart, _ = self._create_checked_out_shopcart()
+        new_item = ItemFactory()
+        response = self.client.post(
+            f"{BASE_URL}/{shopcart.id}/items", json=new_item.serialize()
+        )
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertIn("checked out", response.get_json()["message"])
+        self.assertEqual(len(Shopcart.find(shopcart.id).items), 1)
+
+    def test_update_checked_out_shopcart(self):
+        """It should not update a checked-out Shopcart"""
+        shopcart, _ = self._create_checked_out_shopcart()
+        original_customer = shopcart.customer_id
+        response = self.client.put(
+            f"{BASE_URL}/{shopcart.id}", json={"customer_id": 99999, "items": []}
+        )
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        found = Shopcart.find(shopcart.id)
+        self.assertEqual(found.customer_id, original_customer)
+        self.assertEqual(len(found.items), 1)
+
+    def test_update_item_in_checked_out_shopcart(self):
+        """It should not update an item in a checked-out Shopcart"""
+        shopcart, item = self._create_checked_out_shopcart()
+        original_quantity = item.quantity
+        data = item.serialize()
+        data["quantity"] = original_quantity + 1
+        response = self.client.put(
+            f"{BASE_URL}/{shopcart.id}/items/{item.id}", json=data
+        )
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(Item.find(item.id).quantity, original_quantity)
+
+    def test_delete_item_from_checked_out_shopcart(self):
+        """It should not delete an item from a checked-out Shopcart"""
+        shopcart, item = self._create_checked_out_shopcart()
+        response = self.client.delete(f"{BASE_URL}/{shopcart.id}/items/{item.id}")
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertIsNotNone(Item.find(item.id))
+
+    def test_delete_all_items_from_checked_out_shopcart(self):
+        """It should not delete all items from a checked-out Shopcart"""
+        shopcart, _ = self._create_checked_out_shopcart()
+        response = self.client.delete(f"{BASE_URL}/{shopcart.id}/items")
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(len(Shopcart.find(shopcart.id).items), 1)
+
+    def test_delete_checked_out_shopcart(self):
+        """It should still allow a checked-out Shopcart to be deleted"""
+        shopcart, _ = self._create_checked_out_shopcart()
+        response = self.client.delete(f"{BASE_URL}/{shopcart.id}")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNone(Shopcart.find(shopcart.id))

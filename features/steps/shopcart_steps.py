@@ -2,6 +2,7 @@
 
 from secrets import randbelow
 
+import requests
 from behave import given, then, when
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as conditions
@@ -18,6 +19,7 @@ BUTTON_IDS = {
     "Delete Shopcart": "delete-shopcart-btn",
     "Search Shopcarts": "query-shopcart-btn",
     "Update": "update-shopcart-btn",
+    "Checkout": "checkout-shopcart-btn",
 }
 
 
@@ -496,5 +498,94 @@ def check_update_shopcart_not_found(context):
     message = wait_for_update(context, "error")
     expected = (
         "Shopcart not found. Retrieve an existing shopcart before updating."
+    )
+    assert message.text == expected, message.text
+
+
+######################################################################
+# CHECKOUT
+######################################################################
+
+
+def wait_for_checkout(context, expected_state):
+    """Wait for a checkout request to finish."""
+
+    def request_finished(browser):
+        message = browser.find_element(By.ID, "checkout-message")
+        state = message.get_attribute("data-state")
+
+        if state in ("success", "error") and browser.find_element(
+            By.ID, "read-shopcart-btn"
+        ).is_enabled():
+            return message
+
+        return False
+
+    message = context.wait.until(request_finished)
+    actual_state = message.get_attribute("data-state")
+
+    assert actual_state == expected_state, (
+        f"Expected {expected_state}, got {actual_state}: {message.text}"
+    )
+    return message
+
+
+@when("the created shopcart contains an item")
+def add_item_to_created_shopcart(context):
+    """Add an item through the REST API; the page has no add-item form."""
+    shopcart_id = context.browser.find_element(By.ID, "result-shopcart-id").text
+    assert shopcart_id.isdigit(), f"Expected a numeric shopcart ID, got {shopcart_id!r}"
+
+    response = requests.post(
+        f"{context.base_url}/shopcarts/{shopcart_id}/items",
+        json={
+            "product_id": 1001,
+            "name": "widget",
+            "description": "BDD checkout item",
+            "price": 9.99,
+            "quantity": 2,
+        },
+        timeout=10,
+    )
+    assert response.status_code == 201, (
+        f"Expected 201 adding an item, got {response.status_code}: {response.text}"
+    )
+
+
+@then('the retrieved shopcart should have status "{expected}"')
+def check_retrieved_status(context, expected):
+    """Check the status shown for the retrieved shopcart."""
+    actual = context.browser.find_element(By.ID, "read-result-status").text
+    assert actual == expected, f"Expected status {expected}, got {actual}"
+
+
+@then('the "{button}" button should be disabled')
+def check_button_disabled(context, button):
+    """Check that a named button cannot be used."""
+    element = context.browser.find_element(By.ID, BUTTON_IDS[button])
+    assert not element.is_enabled(), f'The "{button}" button is enabled.'
+
+
+@then("I should see a successful checkout")
+def check_successful_checkout(context):
+    """Check the checkout confirmation."""
+    message = wait_for_checkout(context, "success")
+    assert message.text == "Shopcart checked out successfully.", message.text
+
+
+@then("I should see an empty shopcart checkout error")
+def check_empty_checkout_error(context):
+    """Check the rejection when the shopcart has no items."""
+    message = wait_for_checkout(context, "error")
+    expected = "Unable to checkout. The shopcart must contain at least one item."
+    assert message.text == expected, message.text
+
+
+@then("I should see a checkout shopcart not found message")
+def check_checkout_not_found(context):
+    """Check the rejection when the retrieved shopcart has been deleted."""
+    message = wait_for_checkout(context, "error")
+    expected = (
+        "Shopcart not found. Retrieve an existing shopcart before checking out."
     )
     assert message.text == expected, message.text

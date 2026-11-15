@@ -12,7 +12,14 @@ import os
 from unittest import TestCase
 from unittest.mock import patch
 from wsgi import app
-from service.models import Shopcart, Item, DataValidationError, db
+from service.models import (
+    Shopcart,
+    Item,
+    DataValidationError,
+    db,
+    STATUS_ACTIVE,
+    STATUS_CHECKED_OUT,
+)
 from tests.factories import ShopcartFactory, ItemFactory
 
 DATABASE_URI = os.getenv(
@@ -238,3 +245,65 @@ class TestShopcart(TestCase):
         """It should have a readable repr"""
         shopcart = ShopcartFactory(customer_id=42)
         self.assertIn("customer=[42]", repr(shopcart))
+
+    ######################################################################
+    #  C H E C K O U T   T E S T   C A S E S
+    ######################################################################
+
+    def test_new_shopcart_is_active(self):
+        """It should default a new Shopcart to active"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        found = Shopcart.find(shopcart.id)
+        self.assertEqual(found.status, STATUS_ACTIVE)
+        self.assertFalse(found.is_checked_out)
+
+    def test_serialize_includes_status(self):
+        """It should include the status when serializing a Shopcart"""
+        shopcart = ShopcartFactory()
+        self.assertEqual(shopcart.serialize()["status"], STATUS_ACTIVE)
+        shopcart.create()
+        self.assertEqual(shopcart.serialize()["status"], STATUS_ACTIVE)
+
+    def test_deserialize_ignores_status(self):
+        """It should not let a client set the status through deserialize"""
+        shopcart = Shopcart()
+        shopcart.deserialize({"customer_id": 7, "status": STATUS_CHECKED_OUT})
+        self.assertNotEqual(shopcart.status, STATUS_CHECKED_OUT)
+
+    def test_checkout_shopcart(self):
+        """It should checkout an active Shopcart with items"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        item = ItemFactory(shopcart=shopcart)
+        item.create()
+
+        self.assertTrue(shopcart.checkout())
+
+        found = Shopcart.find(shopcart.id)
+        self.assertEqual(found.status, STATUS_CHECKED_OUT)
+        self.assertTrue(found.is_checked_out)
+
+    def test_checkout_empty_shopcart(self):
+        """It should not checkout a Shopcart with no items"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+
+        self.assertRaises(DataValidationError, shopcart.checkout)
+
+        found = Shopcart.find(shopcart.id)
+        self.assertEqual(found.status, STATUS_ACTIVE)
+
+    def test_checkout_already_checked_out(self):
+        """It should leave an already checked-out Shopcart unchanged"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        item = ItemFactory(shopcart=shopcart)
+        item.create()
+        shopcart.checkout()
+
+        with patch.object(Shopcart, "update") as update_mock:
+            self.assertFalse(shopcart.checkout())
+            update_mock.assert_not_called()
+
+        self.assertEqual(Shopcart.find(shopcart.id).status, STATUS_CHECKED_OUT)
