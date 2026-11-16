@@ -96,14 +96,6 @@
         data-state="idle"
       ></p>
 
-      <p
-        id="checkout-message"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        data-state="idle"
-      ></p>
-
       <section id="retrieved-shopcart" aria-labelledby="read-result-heading" hidden>
         <h3 id="read-result-heading">Retrieved Shopcart</h3>
 
@@ -148,22 +140,45 @@
           </button>
         </form>
 
-        <form
-          id="checkout-shopcart-form"
-          data-endpoint-template="{{ url_for('checkout_shopcart', shopcart_id=0) }}"
-        >
-          <h4>Checkout Shopcart</h4>
+      </section>
+    </section>
+    <section aria-labelledby="checkout-heading">
+      <h2 id="checkout-heading">Checkout a Shopcart</h2>
 
-          <p>
-            Checking out finalizes the shopcart. It must contain at least one
-            item, and it cannot be modified afterwards.
-          </p>
+      <p>
+        Enter a shopcart ID to checkout the shopcart.
+        The shopcart must contain at least one item and cannot be modified afterwards.
+      </p>
 
-          <button id="checkout-shopcart-btn" type="submit" disabled>
-            Checkout
-          </button>
-        </form>
+      <form id="checkout-shopcart-form" data-endpoint-template="{{ url_for('checkout_shopcart', shopcart_id=0) }}">
+        <p>
+          <label for="checkout-shopcart-id">Shopcart ID</label>
+          <input id="checkout-shopcart-id" name="shopcart_id" type="number" min="1" max="2147483647" step="1" required>
+        </p>
 
+        <button id="checkout-shopcart-btn" type="submit" disabled>
+          Checkout
+        </button>
+      </form>
+
+      <p id="checkout-message" role="status" aria-live="polite" aria-atomic="true" data-state="idle"></p>
+
+      <section id="checked-out-shopcart" aria-labelledby="checkout-result-heading" hidden>
+        <h3 id="checkout-result-heading">Checked Out Shopcart</h3>
+
+        <dl>
+          <dt>Shopcart ID</dt>
+          <dd id="checkout-result-shopcart-id"></dd>
+
+          <dt>Customer ID</dt>
+          <dd id="checkout-result-customer-id"></dd>
+
+          <dt>Item Count</dt>
+          <dd id="checkout-result-item-count"></dd>
+
+          <dt>Status</dt>
+          <dd id="checkout-result-status"></dd>
+        </dl>
       </section>
     </section>
     <section aria-labelledby="query-heading">
