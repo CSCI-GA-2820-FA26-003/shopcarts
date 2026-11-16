@@ -55,6 +55,17 @@ def not_found(error):
     )
 
 
+@app.errorhandler(status.HTTP_409_CONFLICT)
+def resource_conflict(error):
+    """Handles requests that conflict with the resource state with 409_CONFLICT"""
+    message = str(error)
+    app.logger.warning(message)
+    return (
+        jsonify(status=status.HTTP_409_CONFLICT, error="Conflict", message=message),
+        status.HTTP_409_CONFLICT,
+    )
+
+
 @app.errorhandler(status.HTTP_405_METHOD_NOT_ALLOWED)
 def method_not_supported(error):
     """Handles unsupported HTTP methods with 405_METHOD_NOT_SUPPORTED"""

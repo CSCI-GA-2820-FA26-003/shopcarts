@@ -165,6 +165,13 @@ const readResultId = document.getElementById("read-result-shopcart-id");
 const readResultCustomer = document.getElementById("read-result-customer-id");
 const readResultCount = document.getElementById("read-result-item-count");
 const readResultItems = document.getElementById("read-result-items");
+const readResultStatus = document.getElementById("read-result-status");
+
+const STATUS_CHECKED_OUT = "checked_out";
+
+function isDisplayedShopcartCheckedOut() {
+  return readResultStatus.textContent === STATUS_CHECKED_OUT;
+}
 
 function showReadMessage(text, state) {
   readMessage.textContent = text;
@@ -177,9 +184,12 @@ function clearReadResult() {
   readResultCustomer.textContent = "";
   readResultCount.textContent = "";
   readResultItems.textContent = "";
+  readResultStatus.textContent = "";
   updateInput.value = "";
   updateButton.disabled = true;
+  checkoutButton.disabled = true;
   showUpdateMessage("", "idle");
+  showCheckoutMessage("", "idle");
 }
 
 readForm.addEventListener("submit", async (event) => {
@@ -224,7 +234,8 @@ readForm.addEventListener("submit", async (event) => {
     if (
       shopcart.id !== shopcartId ||
       !Number.isInteger(shopcart.customer_id) ||
-      !Array.isArray(shopcart.items)
+      !Array.isArray(shopcart.items) ||
+      typeof shopcart.status !== "string"
     ) {
       showReadMessage(
         "The service returned an unexpected response. Please try again.",
@@ -237,9 +248,11 @@ readForm.addEventListener("submit", async (event) => {
     readResultCustomer.textContent = String(shopcart.customer_id);
     readResultCount.textContent = String(shopcart.items.length);
     readResultItems.textContent = JSON.stringify(shopcart.items, null, 2);
+    readResultStatus.textContent = shopcart.status;
     readPanel.hidden = false;
     updateInput.value = String(shopcart.customer_id);
-    updateButton.disabled = false;
+    updateButton.disabled = isDisplayedShopcartCheckedOut();
+    checkoutButton.disabled = false;
 
     showReadMessage("Shopcart retrieved successfully.", "success");
   } catch {
@@ -376,6 +389,7 @@ updateForm.addEventListener("submit", async (event) => {
   if (
     updateButton.disabled ||
     readPanel.hidden ||
+    isDisplayedShopcartCheckedOut() ||
     !updateForm.reportValidity()
   ) {
     return;
@@ -414,7 +428,16 @@ updateForm.addEventListener("submit", async (event) => {
       return;
     }
 
-    if (response.status === 400 || response.status === 409) {
+    if (response.status === 409) {
+      readResultStatus.textContent = STATUS_CHECKED_OUT;
+      showUpdateMessage(
+        "This shopcart has been checked out and cannot be modified.",
+        "error"
+      );
+      return;
+    }
+
+    if (response.status === 400) {
       showUpdateMessage(
         "Unable to update shopcart. Check the customer ID; " +
         "the customer may already have a shopcart.",
@@ -459,6 +482,97 @@ updateForm.addEventListener("submit", async (event) => {
   } finally {
     updateInput.disabled = false;
     readButton.disabled = false;
-    updateButton.disabled = readPanel.hidden;
+    updateButton.disabled = readPanel.hidden || isDisplayedShopcartCheckedOut();
+  }
+});
+
+const checkoutForm = document.getElementById("checkout-shopcart-form");
+const checkoutButton = document.getElementById("checkout-shopcart-btn");
+const checkoutMessage = document.getElementById("checkout-message");
+
+function showCheckoutMessage(text, state) {
+  checkoutMessage.textContent = text;
+  checkoutMessage.dataset.state = state;
+}
+
+checkoutForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (checkoutButton.disabled || readPanel.hidden) {
+    return;
+  }
+
+  const shopcartId = Number(readResultId.textContent);
+  const endpoint = checkoutForm.dataset.endpointTemplate.replace(
+    /\/0\/checkout$/,
+    `/${shopcartId}/checkout`
+  );
+
+  checkoutButton.disabled = true;
+  updateButton.disabled = true;
+  readButton.disabled = true;
+  showCheckoutMessage("Checking out shopcart...", "pending");
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "PUT",
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+
+    if (response.status === 404) {
+      clearReadResult();
+      showCheckoutMessage(
+        "Shopcart not found. Retrieve an existing shopcart before checking out.",
+        "error"
+      );
+      return;
+    }
+
+    if (response.status === 409) {
+      showCheckoutMessage(
+        "Unable to checkout. The shopcart must contain at least one item.",
+        "error"
+      );
+      return;
+    }
+
+    if (response.status !== 200) {
+      showCheckoutMessage(
+        "The service could not checkout the shopcart. Retrieve it again to check its current status.",
+        "error"
+      );
+      return;
+    }
+
+    const shopcart = await response.json();
+
+    if (
+      shopcart.id !== shopcartId ||
+      shopcart.status !== STATUS_CHECKED_OUT ||
+      !Array.isArray(shopcart.items)
+    ) {
+      showCheckoutMessage(
+        "Unable to confirm the checkout. Retrieve the shopcart again to check its current status.",
+        "error"
+      );
+      return;
+    }
+
+    readResultCount.textContent = String(shopcart.items.length);
+    readResultItems.textContent = JSON.stringify(shopcart.items, null, 2);
+    readResultStatus.textContent = shopcart.status;
+
+    showCheckoutMessage("Shopcart checked out successfully.", "success");
+  } catch {
+    showCheckoutMessage(
+      "Unable to confirm the checkout. Check your connection and retrieve the shopcart again.",
+      "error"
+    );
+  } finally {
+    readButton.disabled = false;
+    checkoutButton.disabled = readPanel.hidden;
+    updateButton.disabled = readPanel.hidden || isDisplayedShopcartCheckedOut();
   }
 });

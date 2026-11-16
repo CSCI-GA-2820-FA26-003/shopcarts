@@ -23,7 +23,7 @@ and Delete Shopcart and Item
 
 from flask import jsonify, request, url_for, abort, render_template
 from flask import current_app as app  # Import Flask application
-from service.models import Shopcart, Item
+from service.models import Shopcart, Item, DataValidationError
 from service.common import status  # HTTP Status Codes
 
 # Largest value a PostgreSQL INTEGER column can hold
@@ -172,6 +172,7 @@ def add_item(shopcart_id):
             status.HTTP_404_NOT_FOUND,
             f"Shopcart with id '{shopcart_id}' was not found",
         )
+    check_not_checked_out(shopcart)
 
     # Get the item data from the request
     data = request.get_json()
@@ -214,6 +215,7 @@ def update_shopcart(shopcart_id):
             status.HTTP_404_NOT_FOUND,
             f"Shopcart with id '{shopcart_id}' was not found",
         )
+    check_not_checked_out(shopcart)
 
     # Get the updated data
     data = request.get_json()
@@ -277,6 +279,7 @@ def update_item(shopcart_id, item_id):
             status.HTTP_404_NOT_FOUND,
             f"Shopcart with id '{shopcart_id}' was not found",
         )
+    check_not_checked_out(shopcart)
 
     # Find the item and check that it belongs to this shopcart
     item = Item.find(item_id)
@@ -345,6 +348,10 @@ def delete_item(shopcart_id, item_id):
     app.logger.info(
         "Request to Delete item [%s] from shopcart [%s]", item_id, shopcart_id
     )
+
+    shopcart = Shopcart.find(shopcart_id)
+    if shopcart:
+        check_not_checked_out(shopcart)
 
     item = Item.find(item_id)
     if item and item.shopcart_id == shopcart_id:
@@ -419,11 +426,44 @@ def delete_all_items(shopcart_id):
 
     shopcart = Shopcart.find(shopcart_id)
     if shopcart:
+        check_not_checked_out(shopcart)
         for item in list(shopcart.items):
             item.delete()
         app.logger.info("All items in shopcart [%s] deleted", shopcart_id)
 
     return "", status.HTTP_204_NO_CONTENT
+
+
+######################################################################
+# CHECKOUT A SHOPCART
+######################################################################
+@app.route("/shopcarts/<int:shopcart_id>/checkout", methods=["PUT"])
+def checkout_shopcart(shopcart_id):
+    """
+    Checkout a Shopcart
+    Marks an active, non-empty Shopcart as checked_out so it can no longer be
+    modified. Checking out an already checked-out Shopcart changes nothing.
+    """
+    app.logger.info("Request to checkout shopcart [%s]", shopcart_id)
+
+    shopcart = Shopcart.find(shopcart_id)
+    if not shopcart:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Shopcart with id '{shopcart_id}' was not found",
+        )
+
+    try:
+        changed = shopcart.checkout()
+    except DataValidationError as err:
+        abort(status.HTTP_409_CONFLICT, str(err))
+
+    if changed:
+        app.logger.info("Shopcart [%s] checked out", shopcart_id)
+    else:
+        app.logger.info("Shopcart [%s] was already checked out", shopcart_id)
+
+    return shopcart.serialize(), status.HTTP_200_OK
 
 
 ######################################################################
@@ -451,6 +491,19 @@ def check_content_type(content_type) -> None:
 
 
 ########################################################################
+# Rejects changes to a checked-out Shopcart
+######################################################################
+def check_not_checked_out(shopcart) -> None:
+    """Aborts with 409 Conflict if the Shopcart has been checked out"""
+    if shopcart.is_checked_out:
+        abort(
+            status.HTTP_409_CONFLICT,
+            f"Shopcart with id '{shopcart.id}' has been checked out "
+            "and cannot be modified",
+        )
+
+
+######################################################################
 # Logs error messages before aborting
 ########################################################################
 

@@ -25,6 +25,9 @@ from .item import Item
 
 logger = logging.getLogger("flask.app")
 
+STATUS_ACTIVE = "active"
+STATUS_CHECKED_OUT = "checked_out"
+
 
 ######################################################################
 #  S H O P C A R T   M O D E L
@@ -38,10 +41,47 @@ class Shopcart(db.Model, PersistentBase):
     id = db.Column(db.Integer, primary_key=True)
     # unique=True: the database refuses a second shopcart for the same customer
     customer_id = db.Column(db.Integer, nullable=False, unique=True)
-    items = db.relationship("Item", backref="shopcart", passive_deletes=True)
+    # Only the checkout action changes this; clients cannot set it directly
+    status = db.Column(
+        db.String(16),
+        nullable=False,
+        default=STATUS_ACTIVE,
+        server_default=STATUS_ACTIVE,
+    )
+    # cascade: delete loaded items with the shopcart instead of nulling their FK;
+    # passive_deletes: let the database cascade handle items that are not loaded
+    items = db.relationship(
+        "Item",
+        backref="shopcart",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"<Shopcart customer=[{self.customer_id}] id=[{self.id}]>"
+
+    @property
+    def is_checked_out(self) -> bool:
+        """Returns True when the Shopcart can no longer be modified"""
+        return self.status == STATUS_CHECKED_OUT
+
+    def checkout(self) -> bool:
+        """
+        Checks out the Shopcart so it can no longer be modified
+
+        Returns:
+            bool: True if the status changed, False if it was already checked out
+
+        Raises:
+            DataValidationError: if the Shopcart has no items
+        """
+        if self.is_checked_out:
+            return False
+        if not self.items:
+            raise DataValidationError("Cannot checkout a shopcart with no items")
+        self.status = STATUS_CHECKED_OUT
+        self.update()
+        return True
 
     def calculate_total(self):
         """Calculates the total price of all items in the Shopcart"""
@@ -55,6 +95,7 @@ class Shopcart(db.Model, PersistentBase):
         shopcart = {
             "id": self.id,
             "customer_id": self.customer_id,
+            "status": self.status or STATUS_ACTIVE,
             "items": [],
         }
         for item in self.items:
