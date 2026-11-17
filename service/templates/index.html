@@ -87,6 +87,13 @@
 
       <p id="read-message" role="status" aria-live="polite" aria-atomic="true" data-state="idle"></p>
 
+      <p
+        id="add-item-message"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-state="idle"
+      ></p>
 
       <p
         id="update-message"
@@ -123,6 +130,81 @@
 
         <h4>Items</h4>
         <pre id="read-result-items"></pre>
+
+        <form
+          id="add-item-form"
+          data-endpoint-template="{{ url_for('add_item', shopcart_id=0) }}"
+        >
+          <h4>Add Item</h4>
+
+          <p>
+            Add an item to the retrieved shopcart. Items can only be added
+            while the shopcart is active.
+          </p>
+
+          <p>
+            <label for="item-product-id">Product ID</label>
+            <input
+              id="item-product-id"
+              name="product_id"
+              type="number"
+              min="1"
+              max="2147483647"
+              step="1"
+              required
+            >
+          </p>
+
+          <p>
+            <label for="item-name">Name</label>
+            <input
+              id="item-name"
+              name="name"
+              type="text"
+              maxlength="64"
+              required
+            >
+          </p>
+
+          <p>
+            <label for="item-description">Description (optional)</label>
+            <input
+              id="item-description"
+              name="description"
+              type="text"
+              maxlength="256"
+            >
+          </p>
+
+          <p>
+            <label for="item-price">Price</label>
+            <input
+              id="item-price"
+              name="price"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+            >
+          </p>
+
+          <p>
+            <label for="item-quantity">Quantity</label>
+            <input
+              id="item-quantity"
+              name="quantity"
+              type="number"
+              min="1"
+              max="2147483647"
+              step="1"
+              required
+            >
+          </p>
+
+          <button id="add-item-btn" type="submit" disabled>
+            Add Item
+          </button>
+        </form>
 
         <form
           id="update-shopcart-form"

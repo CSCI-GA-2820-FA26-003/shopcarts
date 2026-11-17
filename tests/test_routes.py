@@ -93,6 +93,33 @@ class TestShopcartService(TestCase):
         self.assertIn('data-endpoint="/shopcarts"', page)
         self.assertIn("/static/shopcarts.js", page)
 
+        # Add Item form for a retrieved shopcart
+        self.assertIn('id="add-item-form"', page)
+        self.assertIn('data-endpoint-template="/shopcarts/0/items"', page)
+        for element_id in (
+            "item-product-id",
+            "item-name",
+            "item-description",
+            "item-price",
+            "item-quantity",
+            "add-item-btn",
+            "add-item-message",
+        ):
+            self.assertIn(f'id="{element_id}"', page)
+
+        # Description is optional; the other item inputs are required
+        description_field = page[page.index('id="item-description"'):]
+        description_field = description_field[: description_field.index(">")]
+        self.assertNotIn("required", description_field)
+        name_field = page[page.index('id="item-name"'):]
+        name_field = name_field[: name_field.index(">")]
+        self.assertIn("required", name_field)
+
+        # The Add Item button starts disabled until a shopcart is retrieved
+        add_item_button = page[page.index('id="add-item-btn"'):]
+        add_item_button = add_item_button[: add_item_button.index(">")]
+        self.assertIn("disabled", add_item_button)
+
     # ----------------------------------------------------------
     # TEST LIST SHOPCARTS
     # ----------------------------------------------------------
