@@ -51,6 +51,15 @@ make lint
 ```
 
 This runs Flake8 and Pylint. Check the output for errors and warnings, even if the command finishes.
+
+After `make deploy`, check that the Traefik Ingress routes traffic to the service:
+
+```bash
+make test-ingress
+```
+
+This sends `GET /health` and `GET /shopcarts` to `http://127.0.0.1:8080` (override with `BASE_URL=...`). It retries each check up to 10 times while the Ingress comes up, and exits nonzero if either check fails.
+
 ## Database
 
 The service uses two tables in PostgreSQL, defined in `service/models/`.
