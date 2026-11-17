@@ -2,7 +2,6 @@
 
 from secrets import randbelow
 
-import requests
 from behave import given, then, when
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as conditions
@@ -20,6 +19,24 @@ BUTTON_IDS = {
     "Search Shopcarts": "query-shopcart-btn",
     "Update": "update-shopcart-btn",
     "Checkout": "checkout-shopcart-btn",
+    "Add Item": "add-item-btn",
+}
+
+ADD_ITEM_FIELD_IDS = {
+    "product_id": "item-product-id",
+    "name": "item-name",
+    "description": "item-description",
+    "price": "item-price",
+    "quantity": "item-quantity",
+}
+
+# Valid test item entered through the Add Item form
+TEST_ITEM = {
+    "product_id": "1001",
+    "name": "widget",
+    "description": "BDD checkout item",
+    "price": "9.99",
+    "quantity": "2",
 }
 
 
@@ -530,26 +547,56 @@ def wait_for_checkout(context, expected_state):
     return message
 
 
-@when("the created shopcart contains an item")
-def add_item_to_created_shopcart(context):
-    """Add an item through the REST API; the page has no add-item form."""
-    shopcart_id = context.browser.find_element(By.ID, "result-shopcart-id").text
-    assert shopcart_id.isdigit(), f"Expected a numeric shopcart ID, got {shopcart_id!r}"
+def wait_for_add_item(context, expected_state):
+    """Wait for an add-item request to finish."""
 
-    response = requests.post(
-        f"{context.base_url}/shopcarts/{shopcart_id}/items",
-        json={
-            "product_id": 1001,
-            "name": "widget",
-            "description": "BDD checkout item",
-            "price": 9.99,
-            "quantity": 2,
-        },
-        timeout=10,
+    def request_finished(browser):
+        message = browser.find_element(By.ID, "add-item-message")
+        button = browser.find_element(By.ID, "add-item-btn")
+        state = message.get_attribute("data-state")
+
+        if state == "error":
+            return message
+
+        if state == "success" and button.is_enabled():
+            return message
+
+        return False
+
+    message = context.wait.until(request_finished)
+    actual_state = message.get_attribute("data-state")
+
+    assert actual_state == expected_state, (
+        f"Expected {expected_state}, got {actual_state}: {message.text}"
     )
-    assert response.status_code == 201, (
-        f"Expected 201 adding an item, got {response.status_code}: {response.text}"
+    return message
+
+
+@when("I add an item through the administration page")
+def add_item_through_page(context):
+    """Fill in the Add Item form for the retrieved shopcart and submit it."""
+    for field, value in TEST_ITEM.items():
+        element = context.wait.until(
+            conditions.element_to_be_clickable((By.ID, ADD_ITEM_FIELD_IDS[field]))
+        )
+        element.clear()
+        element.send_keys(value)
+
+    button = context.wait.until(
+        conditions.element_to_be_clickable((By.ID, BUTTON_IDS["Add Item"]))
     )
+    button.click()
+
+
+@then("I should see a successful item addition")
+def check_successful_item_addition(context):
+    """Check the add-item confirmation and that the form was cleared."""
+    message = wait_for_add_item(context, "success")
+    assert message.text == "Item added successfully.", message.text
+
+    for field_id in ADD_ITEM_FIELD_IDS.values():
+        value = context.browser.find_element(By.ID, field_id).get_attribute("value")
+        assert value == "", f"Expected {field_id} to be cleared, got {value!r}"
 
 
 @then('the retrieved shopcart should have status "{expected}"')

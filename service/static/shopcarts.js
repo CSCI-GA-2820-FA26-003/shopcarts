@@ -186,8 +186,10 @@ function clearReadResult() {
   readResultItems.textContent = "";
   readResultStatus.textContent = "";
   updateInput.value = "";
+  addItemButton.disabled = true;
   updateButton.disabled = true;
   checkoutButton.disabled = true;
+  showAddItemMessage("", "idle");
   showUpdateMessage("", "idle");
   showCheckoutMessage("", "idle");
 }
@@ -251,6 +253,7 @@ readForm.addEventListener("submit", async (event) => {
     readResultStatus.textContent = shopcart.status;
     readPanel.hidden = false;
     updateInput.value = String(shopcart.customer_id);
+    addItemButton.disabled = isDisplayedShopcartCheckedOut();
     updateButton.disabled = isDisplayedShopcartCheckedOut();
     checkoutButton.disabled = false;
 
@@ -403,6 +406,7 @@ updateForm.addEventListener("submit", async (event) => {
   );
 
   updateButton.disabled = true;
+  addItemButton.disabled = true;
   readButton.disabled = true;
   updateInput.disabled = true;
   showUpdateMessage("Updating shopcart...", "pending");
@@ -482,6 +486,7 @@ updateForm.addEventListener("submit", async (event) => {
   } finally {
     updateInput.disabled = false;
     readButton.disabled = false;
+    addItemButton.disabled = readPanel.hidden || isDisplayedShopcartCheckedOut();
     updateButton.disabled = readPanel.hidden || isDisplayedShopcartCheckedOut();
   }
 });
@@ -509,6 +514,7 @@ checkoutForm.addEventListener("submit", async (event) => {
   );
 
   checkoutButton.disabled = true;
+  addItemButton.disabled = true;
   updateButton.disabled = true;
   readButton.disabled = true;
   showCheckoutMessage("Checking out shopcart...", "pending");
@@ -573,6 +579,167 @@ checkoutForm.addEventListener("submit", async (event) => {
   } finally {
     readButton.disabled = false;
     checkoutButton.disabled = readPanel.hidden;
+    addItemButton.disabled = readPanel.hidden || isDisplayedShopcartCheckedOut();
+    updateButton.disabled = readPanel.hidden || isDisplayedShopcartCheckedOut();
+  }
+});
+
+const addItemForm = document.getElementById("add-item-form");
+const addItemProductId = document.getElementById("item-product-id");
+const addItemName = document.getElementById("item-name");
+const addItemDescription = document.getElementById("item-description");
+const addItemPrice = document.getElementById("item-price");
+const addItemQuantity = document.getElementById("item-quantity");
+const addItemButton = document.getElementById("add-item-btn");
+const addItemMessage = document.getElementById("add-item-message");
+
+function showAddItemMessage(text, state) {
+  addItemMessage.textContent = text;
+  addItemMessage.dataset.state = state;
+}
+
+function clearAddItemFields() {
+  addItemProductId.value = "";
+  addItemName.value = "";
+  addItemDescription.value = "";
+  addItemPrice.value = "";
+  addItemQuantity.value = "";
+}
+
+addItemForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (
+    addItemButton.disabled ||
+    readPanel.hidden ||
+    isDisplayedShopcartCheckedOut() ||
+    !addItemForm.reportValidity()
+  ) {
+    return;
+  }
+
+  const shopcartId = Number(readResultId.textContent);
+  const endpoint = addItemForm.dataset.endpointTemplate.replace(
+    /\/0\/items$/,
+    `/${shopcartId}/items`
+  );
+  const readEndpoint = readForm.dataset.endpointTemplate.replace(
+    /\/0$/,
+    `/${shopcartId}`
+  );
+
+  const item = {
+    product_id: Number(addItemProductId.value),
+    name: addItemName.value.trim(),
+    price: Number(addItemPrice.value),
+    quantity: Number(addItemQuantity.value)
+  };
+  const description = addItemDescription.value.trim();
+  if (description !== "") {
+    item.description = description;
+  }
+
+  addItemButton.disabled = true;
+  updateButton.disabled = true;
+  checkoutButton.disabled = true;
+  readButton.disabled = true;
+  showAddItemMessage("Adding item...", "pending");
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify(item)
+    });
+
+    if (response.status === 404) {
+      clearReadResult();
+      showAddItemMessage(
+        "Shopcart not found. Retrieve an existing shopcart before adding items.",
+        "error"
+      );
+      return;
+    }
+
+    if (response.status === 409) {
+      readResultStatus.textContent = STATUS_CHECKED_OUT;
+      showAddItemMessage(
+        "This shopcart has been checked out and cannot be modified.",
+        "error"
+      );
+      return;
+    }
+
+    if (response.status === 400) {
+      showAddItemMessage(
+        "Unable to add item. Check the item details and try again.",
+        "error"
+      );
+      return;
+    }
+
+    if (response.status !== 201) {
+      showAddItemMessage(
+        "The service could not add the item. Retrieve the shopcart again to check its current items.",
+        "error"
+      );
+      return;
+    }
+
+    // The item was created; refresh the displayed shopcart from the service.
+    let shopcart;
+    try {
+      const refresh = await fetch(readEndpoint, {
+        headers: {
+          "Accept": "application/json"
+        }
+      });
+
+      if (refresh.status !== 200) {
+        throw new Error(`Unexpected status ${refresh.status}`);
+      }
+
+      shopcart = await refresh.json();
+    } catch {
+      showAddItemMessage(
+        "Item added, but the shopcart could not be refreshed. Retrieve it again to see its current items.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      shopcart.id !== shopcartId ||
+      !Array.isArray(shopcart.items) ||
+      typeof shopcart.status !== "string"
+    ) {
+      showAddItemMessage(
+        "Item added, but the shopcart could not be refreshed. Retrieve it again to see its current items.",
+        "error"
+      );
+      return;
+    }
+
+    readResultCustomer.textContent = String(shopcart.customer_id);
+    readResultCount.textContent = String(shopcart.items.length);
+    readResultItems.textContent = JSON.stringify(shopcart.items, null, 2);
+    readResultStatus.textContent = shopcart.status;
+    updateInput.value = String(shopcart.customer_id);
+
+    clearAddItemFields();
+    showAddItemMessage("Item added successfully.", "success");
+  } catch {
+    showAddItemMessage(
+      "Unable to add the item. Check your connection and retrieve the shopcart again.",
+      "error"
+    );
+  } finally {
+    readButton.disabled = false;
+    checkoutButton.disabled = readPanel.hidden;
+    addItemButton.disabled = readPanel.hidden || isDisplayedShopcartCheckedOut();
     updateButton.disabled = readPanel.hidden || isDisplayedShopcartCheckedOut();
   }
 });

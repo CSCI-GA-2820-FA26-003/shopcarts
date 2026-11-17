@@ -239,6 +239,23 @@ pre {
     color: #e2e8f0;
 }
 
+/* The Add Item form has a heading, help text, and five fields, so it wraps
+   instead of forcing everything onto a single row like the other forms. */
+#add-item-form {
+    flex-wrap: wrap;
+}
+
+#add-item-form>h4,
+#add-item-form>p:first-of-type {
+    flex: 1 1 100%;
+    margin: 0;
+}
+
+#add-item-form>p:not(:first-of-type) {
+    flex: 1 1 160px;
+    min-width: 160px;
+}
+
 [hidden] {
     display: none !important;
 }
@@ -275,6 +292,13 @@ pre {
     form {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    /* Stacked column: size Add Item fields to their content, not the
+       160px flex basis used when they share a row. */
+    #add-item-form>p:not(:first-of-type) {
+        flex: 0 0 auto;
+        min-width: 0;
     }
 
     button {
