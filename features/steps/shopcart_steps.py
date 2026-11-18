@@ -16,6 +16,7 @@ BUTTON_IDS = {
     "Create Shopcart": "create-shopcart-btn",
     "Retrieve": "read-shopcart-btn",
     "Delete Shopcart": "delete-shopcart-btn",
+    "List All Shopcarts": "list-shopcarts-btn",
     "Search Shopcarts": "query-shopcart-btn",
     "Update": "update-shopcart-btn",
     "Checkout": "checkout-shopcart-btn",
@@ -636,3 +637,28 @@ def check_checkout_not_found(context):
         "Shopcart not found. Retrieve an existing shopcart before checking out."
     )
     assert message.text == expected, message.text
+
+
+@given("shopcarts exist for two different customers")
+def create_two_shopcarts(context):
+    """Create two shopcarts using the administration page."""
+    context.listed_shopcarts = []
+    for _ in range(2):
+        enter_new_customer_id(context)
+        press_button(context, "Create Shopcart")
+        check_successful_creation(context)
+        shopcart_id = context.browser.find_element(By.ID, "result-shopcart-id").text
+        context.listed_shopcarts.append((shopcart_id, str(context.customer_id), "0"))
+
+
+@then("I should see both customers' shopcarts with their item counts")
+def check_listed_shopcarts(context):
+    """Verify the results include both shopcarts created in this scenario."""
+    check_successful_query(context)
+    rows = context.browser.find_elements(By.CSS_SELECTOR, "#query-results-body tr")
+    results = {
+        tuple(cell.text for cell in row.find_elements(By.TAG_NAME, "td"))
+        for row in rows
+    }
+    for shopcart in context.listed_shopcarts:
+        assert shopcart in results, f"Missing shopcart row {shopcart}"

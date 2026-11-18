@@ -55,3 +55,8 @@ Feature: Create shopcarts through the administration page
     And I press "Search Shopcarts"
     Then I should see a no shopcarts found message
     And the query results should be hidden
+
+  Scenario: List all shopcarts
+    Given shopcarts exist for two different customers
+    When I press "List All Shopcarts"
+    Then I should see both customers' shopcarts with their item counts
