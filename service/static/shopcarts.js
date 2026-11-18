@@ -273,6 +273,7 @@ readButton.disabled = false;
 const queryForm = document.getElementById("query-shopcart-form");
 const queryInput = document.getElementById("query-customer-id");
 const queryButton = document.getElementById("query-shopcart-btn");
+const listButton = document.getElementById("list-shopcarts-btn");
 const queryMessage = document.getElementById("query-message");
 const queryResults = document.getElementById("query-results");
 const queryResultsBody = document.getElementById("query-results-body");
@@ -319,9 +320,19 @@ queryForm.addEventListener("submit", async (event) => {
   const customerId = Number(queryInput.value);
   const endpoint = new URL(queryForm.dataset.endpoint, window.location.origin);
   endpoint.searchParams.set("customer_id", String(customerId));
+  await loadShopcarts(endpoint, customerId);
+});
+
+listButton.addEventListener("click", () => {
+  const endpoint = new URL(queryForm.dataset.endpoint, window.location.origin);
+  return loadShopcarts(endpoint);
+});
+
+async function loadShopcarts(endpoint, customerId) {
 
   clearQueryResults();
   queryButton.disabled = true;
+  listButton.disabled = true;
   showQueryMessage("Searching for shopcarts...", "pending");
 
   try {
@@ -346,7 +357,8 @@ queryForm.addEventListener("submit", async (event) => {
       shopcarts.some(
         (shopcart) =>
           !Number.isInteger(shopcart.id) ||
-          shopcart.customer_id !== customerId ||
+          !Number.isInteger(shopcart.customer_id) ||
+          (customerId !== undefined && shopcart.customer_id !== customerId) ||
           !Array.isArray(shopcart.items)
       )
     ) {
@@ -371,10 +383,12 @@ queryForm.addEventListener("submit", async (event) => {
     );
   } finally {
     queryButton.disabled = false;
+    listButton.disabled = false;
   }
-});
+}
 
 queryButton.disabled = false;
+listButton.disabled = false;
 
 const updateForm = document.getElementById("update-shopcart-form");
 const updateInput = document.getElementById("update-customer-id");
