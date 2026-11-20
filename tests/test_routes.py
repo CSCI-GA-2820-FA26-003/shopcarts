@@ -615,7 +615,7 @@ class TestShopcartService(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-        def test_update_shopcart_bad_customer_id(self):
+    def test_update_shopcart_bad_customer_id(self):
         """It should return 400 when customer_id is not an integer"""
         shopcart = ShopcartFactory()
         shopcart.create()
