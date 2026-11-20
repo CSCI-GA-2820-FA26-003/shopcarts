@@ -1,0 +1,21 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: shopcarts-check-workspace
+spec:
+  workspaces:
+    - name: source
+      description: Writable workspace where the Git Clone task will place the repository.
+  steps:
+    - name: check-writable
+      image: registry.access.redhat.com/ubi9/ubi-minimal:9
+      env:
+        - name: SOURCE_PATH
+          value: $(workspaces.source.path)
+      script: |
+        #!/bin/sh
+        set -eu
+        if [ ! -d "$SOURCE_PATH" ] || [ ! -w "$SOURCE_PATH" ]; then
+          printf 'Source workspace is missing or not writable: %s\n' "$SOURCE_PATH" >&2
+          exit 1
+        fi
