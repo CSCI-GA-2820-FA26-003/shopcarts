@@ -96,7 +96,7 @@ deploy: ## Deploy PostgreSQL, Flask, and Ingress
 	$(KUBECTL) apply -f k8s/ingress.yaml
 
 .PHONY: test-ingress
-test-ingress: ## Smoke test /health and /shopcarts through the Ingress
+test-ingress: ## Smoke test /health and /api/shopcarts through the Ingress
 	$(info Smoke testing Ingress at $(BASE_URL)...)
 	bash k8s/test-ingress.sh "$(BASE_URL)"
 
