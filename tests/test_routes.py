@@ -615,6 +615,19 @@ class TestShopcartService(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+        def test_update_shopcart_bad_customer_id(self):
+        """It should return 400 when customer_id is not an integer"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        response = self.client.put(
+            f"{BASE_URL}/{shopcart.id}", json={"customer_id": "abc"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.get_json()["message"],
+            "400 Bad Request: customer_id must be an integer",
+        )
+
     def test_update_shopcart_invalid_items(self):
         """It should return 400 when items is not a list"""
         shopcart = ShopcartFactory()
