@@ -52,7 +52,7 @@ check() {
 }
 
 check "health endpoint" "/health" 'data == {"status": "OK"}'
-check "shopcarts list"  "/shopcarts" 'isinstance(data, list)'
+check "shopcarts list"  "/api/shopcarts" 'isinstance(data, list)'
 
 if ((failures > 0)); then
     echo "Ingress smoke tests FAILED (${failures} check(s))" >&2
