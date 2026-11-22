@@ -1,0 +1,37 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: shopcarts-test
+spec:
+  params:
+    - name: test-db-secret
+      type: string
+    - name: test-db-secret-key
+      type: string
+  workspaces:
+    - name: source
+  steps:
+    - name: unit-tests
+      image: python:3.12-bookworm
+      workingDir: $(workspaces.source.path)
+      env:
+        - name: DATABASE_URI
+          valueFrom:
+            secretKeyRef:
+              name: $(params.test-db-secret)
+              key: $(params.test-db-secret-key)
+        - name: FLASK_APP
+          value: wsgi:app
+        - name: PIPENV_DONT_LOAD_ENV
+          value: "1"
+      script: |
+        #!/bin/sh
+        set -eu
+
+        export HOME="$(mktemp -d)"
+        python -m venv "$HOME/test-venv"
+        . "$HOME/test-venv/bin/activate"
+        python -m pip install --no-cache-dir pipenv
+        pipenv verify
+        pipenv sync --dev
+        exec pipenv run make test
