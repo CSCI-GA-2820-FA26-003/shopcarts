@@ -21,6 +21,8 @@ TestShopcartService API Service Test Suite
 import os
 import logging
 from unittest import TestCase
+from unittest.mock import patch
+from werkzeug.exceptions import Gone
 from wsgi import app
 from service.common import status
 from service.models import (
@@ -32,12 +34,13 @@ from service.models import (
     STATUS_CHECKED_OUT,
 )
 from service.common import error_handlers
+from service.routes import customer_id_type
 from .factories import ShopcartFactory, ItemFactory
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"
 )
-BASE_URL = "/shopcarts"
+BASE_URL = "/api/shopcarts"
 
 
 ######################################################################
@@ -90,12 +93,12 @@ class TestShopcartService(TestCase):
         self.assertIn('id="create-shopcart-form"', page)
         self.assertIn('id="customer-id"', page)
         self.assertIn('id="create-shopcart-btn"', page)
-        self.assertIn('data-endpoint="/shopcarts"', page)
+        self.assertIn('data-endpoint="/api/shopcarts"', page)
         self.assertIn("/static/shopcarts.js", page)
 
         # Add Item form for a retrieved shopcart
         self.assertIn('id="add-item-form"', page)
-        self.assertIn('data-endpoint-template="/shopcarts/0/items"', page)
+        self.assertIn('data-endpoint-template="/api/shopcarts/0/items"', page)
         for element_id in (
             "item-product-id",
             "item-name",
@@ -612,6 +615,19 @@ class TestShopcartService(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_update_shopcart_bad_customer_id(self):
+        """It should return 400 when customer_id is not an integer"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        response = self.client.put(
+            f"{BASE_URL}/{shopcart.id}", json={"customer_id": "abc"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.get_json()["message"],
+            "400 Bad Request: customer_id must be an integer",
+        )
+
     def test_update_shopcart_invalid_items(self):
         """It should return 400 when items is not a list"""
         shopcart = ShopcartFactory()
@@ -793,10 +809,244 @@ class TestShopcartService(TestCase):
         _, code = error_handlers.mediatype_not_supported("wrong content type")
         self.assertEqual(code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
+    def test_api_error_other_http_exception(self):
+        """It should use the exception's own name for unmapped HTTP errors"""
+        body, code = error_handlers.api_error(Gone("no longer here"))
+        self.assertEqual(code, status.HTTP_410_GONE)
+        self.assertEqual(body["status"], status.HTTP_410_GONE)
+        self.assertEqual(body["error"], "Gone")
+        self.assertEqual(body["message"], "410 Gone: no longer here")
+
+    def test_customer_id_type(self):
+        """It should document customer_id as a bounded integer"""
+        self.assertEqual(customer_id_type("42"), 42)
+        for bad_id in ["abc", "", "-1", "1.5", "²", "2147483648"]:
+            with self.assertRaises(ValueError):
+                customer_id_type(bad_id)
+
     def test_internal_server_error_handler(self):
         """It should return 500 for an internal error"""
         _, code = error_handlers.internal_server_error("boom")
         self.assertEqual(code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def test_api_not_found_is_json(self):
+        """It should return a JSON 404 with an error and message from the API"""
+        response = self.client.get(f"{BASE_URL}/0")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.mimetype, "application/json")
+        data = response.get_json()
+        self.assertEqual(data["status"], status.HTTP_404_NOT_FOUND)
+        self.assertEqual(data["error"], "Not Found")
+        self.assertEqual(
+            data["message"], "404 Not Found: Shopcart with id '0' was not found"
+        )
+
+    def test_non_integer_id_is_json_404(self):
+        """It should return a JSON 404, not HTML, for a non-integer id"""
+        response = self.client.get(f"{BASE_URL}/abc")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(response.get_json()["error"], "Not Found")
+
+    def test_oversized_id_is_404(self):
+        """It should return 404, not 500, for ids too big for the database"""
+        too_big = 2**31
+        for method, url in [
+            ("get", f"{BASE_URL}/{too_big}"),
+            ("delete", f"{BASE_URL}/{too_big}"),
+            ("get", f"{BASE_URL}/{too_big}/total"),
+            ("put", f"{BASE_URL}/{too_big}/checkout"),
+            ("get", f"{BASE_URL}/{too_big}/items"),
+            ("get", f"{BASE_URL}/1/items/{too_big}"),
+        ]:
+            response = getattr(self.client, method)(url)
+            self.assertEqual(
+                response.status_code, status.HTTP_404_NOT_FOUND, f"{method} {url}"
+            )
+            self.assertEqual(response.mimetype, "application/json")
+
+    def test_api_method_not_allowed_is_json(self):
+        """It should return a JSON 405 for an unsupported method on the API"""
+        response = self.client.patch(BASE_URL)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.mimetype, "application/json")
+        data = response.get_json()
+        self.assertEqual(data["status"], status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(data["error"], "Method not Allowed")
+        self.assertTrue(data["message"].startswith("405 Method Not Allowed: "))
+
+    def test_query_bad_customer_id_message(self):
+        """It should explain why a customer_id query value was rejected"""
+        response = self.client.get(BASE_URL, query_string={"customer_id": "abc"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.get_json(),
+            {
+                "status": status.HTTP_400_BAD_REQUEST,
+                "error": "Bad Request",
+                "message": "400 Bad Request: customer_id must be an integer, got 'abc'",
+            },
+        )
+
+    def test_api_unhandled_exception_is_json_500(self):
+        """It should return a JSON 500 for an unexpected error in the API"""
+        with patch("service.routes.Shopcart.all", side_effect=RuntimeError("boom")):
+            response = self.client.get(BASE_URL)
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        data = response.get_json()
+        self.assertEqual(data["status"], status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(data["error"], "Internal Server Error")
+
+    ######################################################################
+    #  S W A G G E R   D O C U M E N T A T I O N   T E S T S
+    ######################################################################
+
+    def test_swagger_ui(self):
+        """It should serve the Swagger UI at /apidocs/"""
+        response = self.client.get("/apidocs/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "text/html")
+
+    def test_swagger_json(self):
+        """It should serve the Swagger specification at /api/swagger.json"""
+        response = self.client.get("/api/swagger.json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        spec = response.get_json()
+        self.assertEqual(spec["basePath"], "/api")
+        for path in (
+            "/shopcarts",
+            "/shopcarts/{shopcart_id}",
+            "/shopcarts/{shopcart_id}/total",
+            "/shopcarts/{shopcart_id}/checkout",
+            "/shopcarts/{shopcart_id}/items",
+            "/shopcarts/{shopcart_id}/items/{item_id}",
+        ):
+            self.assertIn(path, spec["paths"])
+        for model in ("Item", "ItemModel", "ShopcartCreate", "ShopcartUpdate",
+                      "ShopcartModel", "Total"):
+            self.assertIn(model, spec["definitions"])
+
+    def test_health_outside_api(self):
+        """It should keep the health check at the root, outside /api"""
+        response = self.client.get("/health")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get_json(), {"status": "OK"})
+        response = self.client.get("/api/health")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    ######################################################################
+    #  B A D   D A T A   T E S T S  (never a 500)
+    ######################################################################
+
+    def _valid_item(self, **changes):
+        """Returns a valid Item request body with some fields changed"""
+        item = {"product_id": 1, "name": "widget", "price": 9.99, "quantity": 1}
+        item.update(changes)
+        return item
+
+    def _create_shopcart_with_item(self):
+        """Creates a Shopcart with one Item and returns their ids"""
+        shopcart = ShopcartFactory()
+        shopcart.create()
+        item = ItemFactory(shopcart=shopcart)
+        item.create()
+        return shopcart.id, item.id
+
+    def test_malformed_json_body(self):
+        """It should return 400 for a body that is not valid JSON"""
+        response = self.client.post(
+            BASE_URL, data="{bad", content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.mimetype, "application/json")
+        data = response.get_json()
+        self.assertEqual(data["status"], status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(data["error"], "Bad Request")
+        self.assertTrue(data["message"].startswith("400 Bad Request: "))
+
+    def test_non_object_json_bodies(self):
+        """It should return 400 when the JSON body is not an object"""
+        shopcart_id, item_id = self._create_shopcart_with_item()
+        endpoints = [
+            ("post", BASE_URL),
+            ("put", f"{BASE_URL}/{shopcart_id}"),
+            ("post", f"{BASE_URL}/{shopcart_id}/items"),
+            ("put", f"{BASE_URL}/{shopcart_id}/items/{item_id}"),
+        ]
+        for body in ("null", "[]", '"text"'):
+            for method, url in endpoints:
+                response = getattr(self.client, method)(
+                    url, data=body, content_type="application/json"
+                )
+                self.assertEqual(
+                    response.status_code,
+                    status.HTTP_400_BAD_REQUEST,
+                    f"{method.upper()} {url} with {body}",
+                )
+                self.assertEqual(response.get_json()["error"], "Bad Request")
+
+    def test_create_shopcart_customer_id_too_large(self):
+        """It should return 400 for a customer_id that overflows the database"""
+        response = self.client.post(BASE_URL, json={"customer_id": 99999999999})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.get_json()["error"], "Bad Request")
+
+    def test_create_shopcart_duplicate_customer_id(self):
+        """It should return 400 for a customer_id that already has a Shopcart"""
+        response = self.client.post(BASE_URL, json={"customer_id": 42})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        response = self.client.post(BASE_URL, json={"customer_id": 42})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.get_json()["error"], "Bad Request")
+
+    def test_bad_item_fields(self):
+        """It should return 400 for Item fields with bad values"""
+        shopcart_id, item_id = self._create_shopcart_with_item()
+        bad_values = [
+            {"name": "x" * 100},
+            {"price": "abc"},
+            {"quantity": "2"},
+            {"quantity": 0},
+            {"product_id": "abc"},
+        ]
+        for changes in bad_values:
+            body = self._valid_item(**changes)
+            for method, url in [
+                ("post", f"{BASE_URL}/{shopcart_id}/items"),
+                ("put", f"{BASE_URL}/{shopcart_id}/items/{item_id}"),
+            ]:
+                response = getattr(self.client, method)(url, json=body)
+                self.assertEqual(
+                    response.status_code,
+                    status.HTTP_400_BAD_REQUEST,
+                    f"{method.upper()} {url} with {changes}",
+                )
+                self.assertEqual(response.get_json()["error"], "Bad Request")
+
+    def test_wrong_content_type(self):
+        """It should return 415 for a text/plain body"""
+        shopcart_id, item_id = self._create_shopcart_with_item()
+        for method, url in [
+            ("post", BASE_URL),
+            ("put", f"{BASE_URL}/{shopcart_id}"),
+            ("post", f"{BASE_URL}/{shopcart_id}/items"),
+            ("put", f"{BASE_URL}/{shopcart_id}/items/{item_id}"),
+        ]:
+            response = getattr(self.client, method)(
+                url, data="{}", content_type="text/plain"
+            )
+            self.assertEqual(
+                response.status_code,
+                status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                f"{method.upper()} {url}",
+            )
+            data = response.get_json()
+            self.assertEqual(data["status"], status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+            self.assertEqual(data["error"], "Unsupported media type")
+            self.assertEqual(
+                data["message"],
+                "415 Unsupported Media Type: Content-Type must be application/json",
+            )
 
     # ----------------------------------------------------------
     # TEST UPDATE ITEM

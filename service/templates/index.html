@@ -21,7 +21,7 @@
         The new shopcart will initially contain no items.
       </p>
 
-      <form id="create-shopcart-form" data-endpoint="{{ url_for('create_shopcarts') }}">
+      <form id="create-shopcart-form" data-endpoint="{{ shopcarts_url }}">
         <p>
           <label for="customer-id">Customer ID</label>
           <input id="customer-id" name="customer_id" type="number" min="1" max="{{ max_customer_id }}" step="1"
@@ -58,7 +58,7 @@
         Enter a shopcart ID to delete the shopcart.
       </p>
 
-      <form id="delete-shopcart-form" data-endpoint="{{ url_for('list_shopcarts') }}">
+      <form id="delete-shopcart-form" data-endpoint="{{ shopcarts_url }}">
         <p>
           <label for="delete-shopcart-id">Shopcart ID</label>
           <input id="delete-shopcart-id" name="shopcart_id" type="number" min="1" step="1" required>
@@ -74,7 +74,7 @@
     <section aria-labelledby="read-heading">
       <h2 id="read-heading">Read a Shopcart</h2>
 
-      <form id="read-shopcart-form" data-endpoint-template="{{ url_for('get_shopcarts', shopcart_id=0) }}">
+      <form id="read-shopcart-form" data-endpoint-template="{{ shopcart_url }}">
         <p>
           <label for="read-shopcart-id">Shopcart ID</label>
           <input id="read-shopcart-id" name="shopcart_id" type="number" min="1" max="2147483647" step="1" required>
@@ -133,7 +133,7 @@
 
         <form
           id="add-item-form"
-          data-endpoint-template="{{ url_for('add_item', shopcart_id=0) }}"
+          data-endpoint-template="{{ items_url }}"
         >
           <h4>Add Item</h4>
 
@@ -208,7 +208,7 @@
 
         <form
           id="update-shopcart-form"
-          data-endpoint-template="{{ url_for('update_shopcart', shopcart_id=0) }}"
+          data-endpoint-template="{{ shopcart_url }}"
         >
           <h4>Update Shopcart</h4>
 
@@ -232,7 +232,7 @@
 
         <form
           id="checkout-shopcart-form"
-          data-endpoint-template="{{ url_for('checkout_shopcart', shopcart_id=0) }}"
+          data-endpoint-template="{{ checkout_url }}"
         >
           <h4>Checkout Shopcart</h4>
 
@@ -255,7 +255,7 @@
         Enter a customer ID to find the associated shopcart.
       </p>
 
-      <form id="query-shopcart-form" data-endpoint="{{ url_for('list_shopcarts') }}">
+      <form id="query-shopcart-form" data-endpoint="{{ shopcarts_url }}">
         <p>
           <label for="query-customer-id">Customer ID</label>
           <input id="query-customer-id" name="customer_id" type="number" min="1" max="{{ max_customer_id }}" step="1"
