@@ -1,0 +1,15 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: shopcarts
+spec:
+  workspaces:
+    - name: source
+      description: Shared checkout for the repository and downstream tasks.
+  tasks:
+    - name: check-workspace
+      taskRef:
+        name: shopcarts-check-workspace
+      workspaces:
+        - name: source
+          workspace: source
