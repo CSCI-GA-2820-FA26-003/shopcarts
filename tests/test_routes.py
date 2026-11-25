@@ -922,9 +922,51 @@ class TestShopcartService(TestCase):
             "/shopcarts/{shopcart_id}/items/{item_id}",
         ):
             self.assertIn(path, spec["paths"])
-        for model in ("Item", "ItemModel", "ShopcartCreate", "ShopcartUpdate",
-                      "ShopcartModel", "Total"):
+        for model in (
+            "Item",
+            "ItemModel",
+            "ShopcartCreate",
+            "ShopcartUpdate",
+            "ShopcartModel",
+            "Total",
+        ):
             self.assertIn(model, spec["definitions"])
+
+    def test_swagger_created_responses(self):
+        """It should document the body and Location header for both create operations."""
+        response = self.client.get("/api/swagger.json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        paths = response.get_json()["paths"]
+
+        cases = (
+            ("/shopcarts", "ShopcartModel"),
+            ("/shopcarts/{shopcart_id}/items", "ItemModel"),
+        )
+        for path, model in cases:
+            with self.subTest(path=path):
+                created = paths[path]["post"]["responses"]["201"]
+                self.assertEqual(created["headers"]["Location"]["type"], "string")
+                self.assertEqual(created["schema"]["$ref"], f"#/definitions/{model}")
+
+    def test_swagger_error_and_no_content_responses(self):
+        """It should document JSON errors and leave 204 responses without a body."""
+        response = self.client.get("/api/swagger.json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        spec = response.get_json()
+
+        error_model = spec["definitions"]["ErrorResponse"]
+        self.assertEqual(set(error_model["required"]), {"status", "error", "message"})
+
+        cart = spec["paths"]["/shopcarts/{shopcart_id}"]
+        checkout = spec["paths"]["/shopcarts/{shopcart_id}/checkout"]
+        for operation, code in ((cart["get"], "404"), (checkout["put"], "409")):
+            with self.subTest(code=code):
+                self.assertEqual(
+                    operation["responses"][code]["schema"]["$ref"],
+                    "#/definitions/ErrorResponse",
+                )
+
+        self.assertNotIn("schema", cart["delete"]["responses"]["204"])
 
     def test_health_outside_api(self):
         """It should keep the health check at the root, outside /api"""

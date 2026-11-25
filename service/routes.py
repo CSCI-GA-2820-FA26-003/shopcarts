@@ -189,6 +189,30 @@ total_model = api.model(
     },
 )
 
+error_model = api.model(
+    "ErrorResponse",
+    {
+        "status": fields.Integer(
+            required=True, description="HTTP status code", example=404
+        ),
+        "error": fields.String(
+            required=True, description="Error name", example="Not Found"
+        ),
+        "message": fields.String(
+            required=True,
+            description="Details about the failed request",
+            example="Shopcart with id '7' was not found",
+        ),
+    },
+)
+
+created_location_headers = {
+    "Location": {
+        "type": "string",
+        "description": "URL of the newly created resource.",
+    }
+}
+
 
 def customer_id_type(value):
     """Validates customer_id query values"""
@@ -240,7 +264,7 @@ class ShopcartResource(Resource):
     # RETRIEVE A SHOPCART
     # ------------------------------------------------------------------
     @api.doc("get_shopcarts")
-    @api.response(404, "Shopcart not found")
+    @api.response(404, "Shopcart not found", error_model)
     @api.marshal_with(shopcart_model)
     def get(self, shopcart_id):
         """
@@ -260,10 +284,10 @@ class ShopcartResource(Resource):
     # UPDATE AN EXISTING SHOPCART
     # ------------------------------------------------------------------
     @api.doc("update_shopcarts")
-    @api.response(400, "The posted Shopcart data was not valid")
-    @api.response(404, "Shopcart not found")
-    @api.response(409, "The Shopcart has been checked out")
-    @api.response(415, "Content-Type must be application/json")
+    @api.response(400, "The posted Shopcart data was not valid", error_model)
+    @api.response(404, "Shopcart not found", error_model)
+    @api.response(409, "The Shopcart has been checked out", error_model)
+    @api.response(415, "Content-Type must be application/json", error_model)
     @api.expect(update_model)
     @api.marshal_with(shopcart_model)
     def put(self, shopcart_id):
@@ -357,7 +381,7 @@ class ShopcartCollection(Resource):
     # LIST ALL SHOPCARTS
     # ------------------------------------------------------------------
     @api.doc("list_shopcarts")
-    @api.response(400, "customer_id must be a non-negative integer")
+    @api.response(400, "customer_id must be a non-negative integer", error_model)
     @api.expect(shopcart_args, validate=True)
     @api.marshal_list_with(shopcart_model)
     def get(self):
@@ -394,8 +418,14 @@ class ShopcartCollection(Resource):
     # ADD A NEW SHOPCART
     # ------------------------------------------------------------------
     @api.doc("create_shopcarts")
-    @api.response(400, "The posted data was not valid")
-    @api.response(415, "Content-Type must be application/json")
+    @api.response(400, "The posted data was not valid", error_model)
+    @api.response(415, "Content-Type must be application/json", error_model)
+    @api.response(
+        "201",
+        "Shopcart created",
+        shopcart_model,
+        headers=created_location_headers,
+    )
     @api.expect(create_model)
     @api.marshal_with(shopcart_model, code=201)
     def post(self):
@@ -440,7 +470,7 @@ class ShopcartTotalResource(Resource):
     """
 
     @api.doc("get_shopcart_total")
-    @api.response(404, "Shopcart not found")
+    @api.response(404, "Shopcart not found", error_model)
     @api.marshal_with(total_model)
     def get(self, shopcart_id):
         """Returns the total price of a Shopcart"""
@@ -472,8 +502,10 @@ class CheckoutResource(Resource):
     """
 
     @api.doc("checkout_shopcarts")
-    @api.response(404, "Shopcart not found")
-    @api.response(409, "The Shopcart has no items and cannot be checked out")
+    @api.response(404, "Shopcart not found", error_model)
+    @api.response(
+        409, "The Shopcart has no items and cannot be checked out", error_model
+    )
     @api.marshal_with(shopcart_model)
     def put(self, shopcart_id):
         """
@@ -523,7 +555,7 @@ class ItemResource(Resource):
     # RETRIEVE AN ITEM
     # ------------------------------------------------------------------
     @api.doc("get_items")
-    @api.response(404, "Shopcart or Item not found")
+    @api.response(404, "Shopcart or Item not found", error_model)
     @api.marshal_with(item_model)
     def get(self, shopcart_id, item_id):
         """Returns a specific item from a Shopcart"""
@@ -553,10 +585,10 @@ class ItemResource(Resource):
     # UPDATE AN ITEM
     # ------------------------------------------------------------------
     @api.doc("update_items")
-    @api.response(400, "The posted Item data was not valid")
-    @api.response(404, "Shopcart or Item not found")
-    @api.response(409, "The Shopcart has been checked out")
-    @api.response(415, "Content-Type must be application/json")
+    @api.response(400, "The posted Item data was not valid", error_model)
+    @api.response(404, "Shopcart or Item not found", error_model)
+    @api.response(409, "The Shopcart has been checked out", error_model)
+    @api.response(415, "Content-Type must be application/json", error_model)
     @api.expect(item_create_model)
     @api.marshal_with(item_model)
     def put(self, shopcart_id, item_id):
@@ -611,7 +643,7 @@ class ItemResource(Resource):
     # ------------------------------------------------------------------
     @api.doc("delete_items")
     @api.response(204, "Item deleted")
-    @api.response(409, "The Shopcart has been checked out")
+    @api.response(409, "The Shopcart has been checked out", error_model)
     def delete(self, shopcart_id, item_id):
         """Remove an item from a shopcart."""
         app.logger.info(
@@ -649,7 +681,7 @@ class ItemCollection(Resource):
     # LIST ALL ITEMS
     # ------------------------------------------------------------------
     @api.doc("list_items")
-    @api.response(404, "Shopcart not found")
+    @api.response(404, "Shopcart not found", error_model)
     @api.marshal_list_with(item_model)
     def get(self, shopcart_id):
         """Returns all items in the specified Shopcart"""
@@ -669,10 +701,16 @@ class ItemCollection(Resource):
     # ADD AN ITEM
     # ------------------------------------------------------------------
     @api.doc("create_items")
-    @api.response(400, "The posted Item data was not valid")
-    @api.response(404, "Shopcart not found")
-    @api.response(409, "The Shopcart has been checked out")
-    @api.response(415, "Content-Type must be application/json")
+    @api.response(400, "The posted Item data was not valid", error_model)
+    @api.response(404, "Shopcart not found", error_model)
+    @api.response(409, "The Shopcart has been checked out", error_model)
+    @api.response(415, "Content-Type must be application/json", error_model)
+    @api.response(
+        "201",
+        "Item created",
+        item_model,
+        headers=created_location_headers,
+    )
     @api.expect(item_create_model)
     @api.marshal_with(item_model, code=201)
     def post(self, shopcart_id):
@@ -719,7 +757,7 @@ class ItemCollection(Resource):
     # ------------------------------------------------------------------
     @api.doc("delete_all_items")
     @api.response(204, "All Items deleted")
-    @api.response(409, "The Shopcart has been checked out")
+    @api.response(409, "The Shopcart has been checked out", error_model)
     def delete(self, shopcart_id):
         """Deletes all items in the specified Shopcart but keeps the Shopcart"""
         app.logger.info("Request to Delete all items in shopcart [%s]", shopcart_id)
