@@ -8,7 +8,7 @@ spec:
       description: Writable workspace where the Git Clone task will place the repository.
   steps:
     - name: check-writable
-      image: registry.access.redhat.com/ubi9/ubi-minimal:9
+      image: registry.access.redhat.com/ubi9/ubi-minimal
       env:
         - name: SOURCE_PATH
           value: $(workspaces.source.path)
